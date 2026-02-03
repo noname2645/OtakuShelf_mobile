@@ -2,14 +2,18 @@
 import React from 'react';
 import {
   View,
+  Text,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
   Platform,
-  Animated,
+  SafeAreaView,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
+
+const ROUTE_ORDER = ['Home', 'List', 'Search', 'AI'];
 
 const BottomNavBar = () => {
   const navigation = useNavigation();
@@ -20,13 +24,13 @@ const BottomNavBar = () => {
   const getNavBarWidth = () => {
     if (screenWidth < 375) return '95%';
     if (screenWidth < 576) return '90%';
-    return 'fit-content';
+    return 360;
   };
 
   const getNavBarPadding = () => {
     if (screenWidth < 375) return { paddingHorizontal: 12, paddingVertical: 6 };
-    if (screenWidth < 576) return { paddingHorizontal: 15, paddingVertical: 8 };
-    return { paddingHorizontal: 20, paddingVertical: 10 };
+    if (screenWidth < 576) return { paddingHorizontal: 14, paddingVertical: 8 };
+    return { paddingHorizontal: 18, paddingVertical: 10 };
   };
 
   const getIconSize = () => {
@@ -77,79 +81,102 @@ const BottomNavBar = () => {
     </Svg>
   );
 
+  const getTransition = (target) => {
+    const currentIndex = ROUTE_ORDER.indexOf(activePage);
+    const targetIndex = ROUTE_ORDER.indexOf(target);
+    if (currentIndex === -1 || targetIndex === -1) return 'right';
+    return targetIndex < currentIndex ? 'left' : 'right';
+  };
+
   const NavItem = ({ routeName, title, isActive, IconComponent }) => (
     <TouchableOpacity
-      onPress={() => navigation.navigate(routeName)}
+      onPress={() =>
+        navigation.navigate({
+          name: routeName,
+          params: { transition: getTransition(routeName) },
+          merge: true,
+        })
+      }
       style={[
-        styles.navLabel,
+        styles.navItem,
         getNavItemPadding(),
-        isActive && styles.navLabelActive,
+        isActive && styles.navItemActive,
       ]}
       activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
-        <IconComponent
-          active={isActive}
-          size={getIconSize()}
-          style={[
-            styles.icon,
-            isActive && styles.activeIcon,
-          ]}
-        />
-        {isActive && (
-          <Animated.View style={styles.activeIndicator} />
-        )}
-      </View>
+      <IconComponent
+        active={isActive}
+        size={getIconSize()}
+      />
+      <Text style={[styles.navText, isActive && styles.navTextActive]}>
+        {title}
+      </Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={[
-      styles.bottomButtonBar,
-      { width: getNavBarWidth() },
-      getNavBarPadding(),
-    ]}>
-      <NavItem
-        routeName="Home"
-        title="home"
-        isActive={activePage === 'Home'}
-        IconComponent={HomeIcon}
-      />
+    <SafeAreaView pointerEvents="box-none" style={styles.safeArea}>
+      <BlurView
+        intensity={40}
+        tint="dark"
+        style={[
+          styles.bottomBar,
+          { width: getNavBarWidth() },
+          getNavBarPadding(),
+        ]}
+      >
+        <NavItem
+          routeName="Home"
+          title="Home"
+          isActive={activePage === 'Home'}
+          IconComponent={HomeIcon}
+        />
 
-      <NavItem
-        routeName="List"
-        title="list"
-        isActive={activePage === 'List'}
-        IconComponent={ListIcon}
-      />
+        <NavItem
+          routeName="List"
+          title="List"
+          isActive={activePage === 'List'}
+          IconComponent={ListIcon}
+        />
 
-      <NavItem
-        routeName="Advance"
-        title="search"
-        isActive={activePage === 'Advance'}
-        IconComponent={SearchIcon}
-      />
+        <NavItem
+          routeName="Search"
+          title="Search"
+          isActive={activePage === 'Search'}
+          IconComponent={SearchIcon}
+        />
 
-      <NavItem
-        routeName="AI"
-        title="AI"
-        isActive={activePage === 'AI'}
-        IconComponent={AiIcon}
-      />
-    </View>
+        <NavItem
+          routeName="AI"
+          title="AI"
+          isActive={activePage === 'AI'}
+          IconComponent={AiIcon}
+        />
+      </BlurView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  bottomButtonBar: {
+  safeArea: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 30 : 20,
-    alignSelf: 'center',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    paddingBottom: Platform.OS === 'ios' ? 16 : 8,
+    pointerEvents: 'box-none',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-evenly',
-    backgroundColor: '#05213c',
-    borderRadius: 30,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(7, 16, 32, 0.92)',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     zIndex: 2000,
     ...Platform.select({
       ios: {
@@ -162,62 +189,25 @@ const styles = StyleSheet.create({
         elevation: 10,
       },
     }),
-    // Safe area support for iOS
-    ...Platform.select({
-      ios: {
-        bottom: 30,
-      },
-      android: {
-        bottom: 20,
-      },
-    }),
   },
-  navLabel: {
+  navItem: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 18,
+    gap: 4,
   },
-  navLabelActive: {
-    transform: [{ translateY: -5 }],
+  navItemActive: {
+    backgroundColor: 'rgba(255, 102, 8, 0.12)',
   },
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  navText: {
+    fontSize: 11,
+    color: '#a5a5a5',
+    letterSpacing: 0.4,
   },
-  icon: {
-    transition: 'all 0.2s',
-  },
-  activeIcon: {
-    transform: [{ scale: 1.2 }],
-  },
-  activeIndicator: {
-    position: 'absolute',
-    bottom: -10,
-    width: '100%',
-    height: 2,
-    backgroundColor: '#ff6608',
-    borderRadius: 5,
-    marginTop: 5,
+  navTextActive: {
+    color: '#ff6608',
+    fontWeight: '700',
   },
 });
-
-// Safe area wrapper for iOS
-const BottomNavBarWithSafeArea = () => {
-  return (
-    <View style={styles.safeAreaContainer}>
-      <BottomNavBar />
-    </View>
-  );
-};
-
-const safeAreaStyles = StyleSheet.create({
-  safeAreaContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-  },
-});
-
-export default BottomNavBarWithSafeArea;
+export default BottomNavBar;

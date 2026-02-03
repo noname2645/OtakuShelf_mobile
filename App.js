@@ -1,11 +1,10 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { BricolageGrotesque_400Regular } from '@expo-google-fonts/bricolage-grotesque';
 import { AuthProvider } from './src/contexts/AuthContext';
-
-
-// Import screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -17,16 +16,37 @@ import ProfileScreen from './src/screens/ProfileScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const navTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: '#0a0f1e',
+      card: '#0a0f1e',
+    },
+  };
+
+  const [fontsLoaded] = useFonts({
+    BricolageGrotesque_400Regular,
+    'SN Pro': require('./assets/SNPro-Regular.ttf'),
+    Outfit: require('./assets/Outfit-Regular.ttf'),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <StatusBar style="light" />
+      <NavigationContainer theme={navTheme}>
+        <StatusBar style="light" backgroundColor="#0a0f1e" />
         <Stack.Navigator
           initialRouteName="Home"
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: '#0a0f1e' },
             animation: 'slide_from_right',
+            statusBarColor: '#0a0f1e',
+            statusBarStyle: 'light',
           }}
         >
           <Stack.Screen name="Login" component={LoginScreen} />

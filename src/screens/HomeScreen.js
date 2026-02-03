@@ -14,21 +14,25 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
-  Modal,
+  PanResponder,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
+import BottomNavBar from '../components/BottomNav';
+import AnimeModal from '../components/AnimeModal';
 
 const { width, height } = Dimensions.get('window');
 const isMobile = width <= 768;
+const HERO_HEIGHT = height * 0.85;
 
 // API Configuration
-const API_BASE_URL = process.env.API_BASE_URL || 'https://otakushelf-uuvw.onrender.com'; // For Android emulator
+const API_BASE_URL = process.env.API_BASE_URL || 'https://otakushelf-uuvw.onrender.com';
 
-// Card dimensions
+// Card dimensions - match web exactly
 const CARD_WIDTH = isMobile ? (width - 60) / 2 : Math.floor((width - 100) / 4);
-const CARD_HEIGHT = CARD_WIDTH * 1.5;
+const CARD_HEIGHT = CARD_WIDTH * 1.45; // Match web aspect ratio
+const FONT_REGULAR = 'BricolageGrotesque_400Regular';
 
 // ========== ANIME CARD COMPONENT ==========
 const AnimeCard = React.memo(({ anime, onPress, index }) => {
@@ -80,11 +84,12 @@ const AnimeCard = React.memo(({ anime, onPress, index }) => {
           transform: [{ scale: scaleAnim }],
           width: CARD_WIDTH,
           height: CARD_HEIGHT,
-          marginBottom: 20,
+          marginBottom: 25,
+          animationDelay: `${index * 0.03}s`,
         }
       ]}
     >
-      <TouchableOpacity 
+      <TouchableOpacity
         activeOpacity={1}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -92,7 +97,7 @@ const AnimeCard = React.memo(({ anime, onPress, index }) => {
         style={styles.cardTouchable}
       >
         <View style={styles.cardInner}>
-          {/* Image */}
+          {/* Image - No top space */}
           <Image
             source={{ uri: imageUrl }}
             style={styles.cardImage}
@@ -100,7 +105,7 @@ const AnimeCard = React.memo(({ anime, onPress, index }) => {
             onLoadStart={() => setImageLoaded(false)}
             onLoadEnd={() => setImageLoaded(true)}
           />
-          
+
           {/* Loading Placeholder */}
           {!imageLoaded && (
             <View style={styles.imagePlaceholder}>
@@ -108,37 +113,156 @@ const AnimeCard = React.memo(({ anime, onPress, index }) => {
             </View>
           )}
 
-          {/* Title Overlay */}
+          {/* Gradient fade from below - matches web exactly */}
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
-            style={styles.titleGradient}
-          >
+            colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
+            locations={[0, 0.3, 0.7, 1]}
+            style={styles.gradientOverlay}
+          />
+
+          {/* Title overlay - matches web card-title-bottom */}
+          <View style={styles.titleOverlay}>
             <Text style={styles.cardTitle} numberOfLines={2}>
               {anime?.title || 'Loading...'}
             </Text>
-          </LinearGradient>
+          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
   );
 });
 
-// ========== TRAILER HERO ==========
-const TrailerHero = React.memo(({ onOpenModal, featuredAnime }) => {
+// ========== TRAILER HERO WITH EXACT CONTENT OVERLAY ==========
+const TrailerHero = React.memo(({ onOpenModal, featuredAnime, onSwipeUp }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
+  const autoSlideRef = useRef(null);
 
-  const currentAnime = useMemo(() => 
+  const currentAnime = useMemo(() =>
     featuredAnime[currentIndex] || featuredAnime[0]
-  , [featuredAnime, currentIndex]);
+    , [featuredAnime, currentIndex]);
+
+  const animateToIndex = useCallback((nextIndex) => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) return;
+      setCurrentIndex(nextIndex);
+    });
+  }, [fadeAnim]);
+
+  // Animation effects
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [currentIndex]);
 
   useEffect(() => {
+    contentAnim.setValue(0);
+    Animated.spring(contentAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [currentIndex]);
+
+  // Auto-slide effect
+  useEffect(() => {
     if (featuredAnime.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentIndex((prev) => (prev + 1) % featuredAnime.length);
-      }, 5000);
-      return () => clearInterval(interval);
+      autoSlideRef.current = setInterval(() => {
+        const nextIndex = (currentIndex + 1) % featuredAnime.length;
+        animateToIndex(nextIndex);
+      }, 10000);
+      return () => clearInterval(autoSlideRef.current);
     }
-  }, [featuredAnime]);
+  }, [featuredAnime, currentIndex, animateToIndex]);
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gesture) =>
+      Math.abs(gesture.dx) > 10 || Math.abs(gesture.dy) > 10,
+    onPanResponderRelease: (_, gesture) => {
+      const threshold = 50;
+      const isVertical = Math.abs(gesture.dy) > Math.abs(gesture.dx);
+      if (isVertical && gesture.dy <= -threshold) {
+        if (onSwipeUp) onSwipeUp();
+        return;
+      }
+      if (gesture.dx <= -threshold) {
+        const nextIndex = (currentIndex + 1) % featuredAnime.length;
+        animateToIndex(nextIndex);
+      } else if (gesture.dx >= threshold) {
+        const prevIndex = currentIndex === 0
+          ? featuredAnime.length - 1
+          : currentIndex - 1;
+        animateToIndex(prevIndex);
+      }
+    },
+  }), [currentIndex, featuredAnime.length, animateToIndex, onSwipeUp]);
+
+  // Helper functions from TrailerHero.jsx
+  const getAnimeTitle = (anime) => {
+    if (anime?.title?.english) return anime.title.english;
+    if (anime?.title?.romaji) return anime.title.romaji;
+    if (anime?.title?.native) return anime.title.native;
+    if (typeof anime?.title === 'string') return anime.title;
+    if (anime?.title_english) return anime.title_english;
+    if (anime?.title_romaji) return anime.title_romaji;
+    return anime?.title || 'Unknown Title';
+  };
+
+  const getAnimeDescription = (anime) => {
+    return anime?.description || anime?.synopsis || 'No description available.';
+  };
+
+  const truncateDescription = (description) => {
+    if (!description) return "No description available.";
+    const cleanText = description
+      .replace(/<[^>]*>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .trim();
+
+    const maxLength = isMobile ? 180 : 250;
+    return cleanText.length > maxLength
+      ? cleanText.substring(0, maxLength) + "..."
+      : cleanText;
+  };
+
+  const formatGenres = (genres) => {
+    if (!genres || genres.length === 0) return "Unknown";
+    const maxGenres = isMobile ? 2 : 3;
+    return genres.slice(0, maxGenres).join(" • ");
+  };
+
+  const getStatusColor = (status) => {
+    if (!status) return '#757575';
+    switch (status.toLowerCase()) {
+      case 'releasing': return '#4CAF50';
+      case 'not_yet_released':
+      case 'not_yet_aired': return '#FF9800';
+      case 'finished': return '#2196F3';
+      default: return '#757575';
+    }
+  };
+
+  const getStatusText = (status) => {
+    if (!status) return 'Unknown';
+    return status.replace(/_/g, ' ');
+  };
+
 
   if (!featuredAnime || featuredAnime.length === 0) {
     return (
@@ -151,43 +275,127 @@ const TrailerHero = React.memo(({ onOpenModal, featuredAnime }) => {
     );
   }
 
-  const imageUrl = currentAnime?.bannerImage || 
-                   currentAnime?.coverImage?.extraLarge || 
-                   `https://picsum.photos/${width}/400?random=hero`;
+  const imageUrl = currentAnime?.coverImage?.extraLarge ||
+    currentAnime?.coverImage?.large ||
+    currentAnime?.bannerImage ||
+    `https://picsum.photos/${width}/400?random=hero`;
+
+  const hasTrailer = currentAnime?.trailer?.id || currentAnime?.trailer?.embed_url;
 
   return (
-    <View style={styles.heroContainer}>
+    <Animated.View
+      style={[styles.trailerHeroContainer, { opacity: fadeAnim }]}
+      {...panResponder.panHandlers}
+    >
+      {/* Hero Image */}
       <Image
         source={{ uri: imageUrl }}
         style={styles.heroImage}
         resizeMode="cover"
       />
-      
+
+      {/* Gradient Overlay - matches web exactly */}
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
-        style={styles.heroOverlay}
+        colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
+        locations={[0.3, 0.5, 0.7, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.heroGradientOverlay}
       />
 
-      <View style={styles.heroContent}>
-        <Text style={styles.heroTitle} numberOfLines={2}>
-          {currentAnime?.title || 'Featured Anime'}
+      {/* Bottom fade to blend into content */}
+      <LinearGradient
+        colors={['rgba(10,17,36,0)', 'rgba(10,17,36,0.7)', 'rgba(10,17,36,1)']}
+        locations={[0, 0.6, 1]}
+        style={styles.heroBottomFade}
+        pointerEvents="none"
+      />
+
+
+      {/* Content Overlay - Exact match from web */}
+      <Animated.View
+        style={[
+          styles.contentOverlay,
+          {
+            transform: [
+              {
+                translateY: contentAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [isMobile ? 50 : 100, 0]
+                })
+              }
+            ],
+            opacity: contentAnim
+          }
+        ]}
+      >
+        {/* Anime Title */}
+        <Text style={styles.animeTitle} numberOfLines={2}>
+          {getAnimeTitle(currentAnime)}
         </Text>
-        
-        {currentAnime?.averageScore && (
-          <View style={styles.heroMeta}>
-            <MaterialIcons name="star" size={20} color="#FFD700" />
-            <Text style={styles.heroScore}>{(currentAnime.averageScore / 10).toFixed(1)}/10</Text>
+
+        {/* Anime Meta Information */}
+        <View style={styles.animeMeta}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentAnime.status) }]}>
+            <Text style={styles.statusBadgeText}>{getStatusText(currentAnime.status)}</Text>
           </View>
+          <Text style={styles.metaText}>{currentAnime.seasonYear || currentAnime.year || 'TBA'}</Text>
+          {currentAnime.episodes && (
+            <>
+              <Text style={styles.metaSeparator}>•</Text>
+              <Text style={styles.metaText}>{currentAnime.episodes} Episodes</Text>
+            </>
+          )}
+          {currentAnime.averageScore && (
+            <>
+              <Text style={styles.metaSeparator}>•</Text>
+              <Text style={styles.score}>⭐ {(currentAnime.averageScore / 10).toFixed(1)}/10</Text>
+            </>
+          )}
+        </View>
+
+        {/* Anime Description */}
+        <Text style={styles.animeDescription} numberOfLines={4}>
+          {truncateDescription(getAnimeDescription(currentAnime))}
+        </Text>
+
+        {/* Genres */}
+        {currentAnime.genres && currentAnime.genres.length > 0 && (
+          <Text style={styles.genres} numberOfLines={1}>
+            <Text style={styles.genresLabel}>Genres: </Text>
+            {formatGenres(currentAnime.genres)}
+          </Text>
         )}
 
-        <TouchableOpacity 
-          style={styles.heroButton}
+        {/* Details Button */}
+        <TouchableOpacity
+          style={styles.detailsButton}
           onPress={() => onOpenModal(currentAnime)}
+          activeOpacity={0.8}
         >
-          <MaterialIcons name="info-outline" size={20} color="#000" />
-          <Text style={styles.heroButtonText}>More Details</Text>
+          <MaterialIcons name="play-circle-outline" size={isMobile ? 20 : 24} color="#000" />
+          <Text style={styles.detailsButtonText}>More Details</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
+
+      {/* Navigation Arrows
+      {featuredAnime.length > 1 && (
+        <View style={styles.sliderBtns}>
+          <TouchableOpacity
+            style={styles.sliderBtn}
+            onPress={() => setCurrentIndex(prev => prev === 0 ? featuredAnime.length - 1 : prev - 1)}
+          >
+            <MaterialIcons name="arrow-back-ios" size={24} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sliderBtn}
+            onPress={() => setCurrentIndex(prev => (prev + 1) % featuredAnime.length)}
+          >
+            <MaterialIcons name="arrow-forward-ios" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )} */}
 
       {/* Dots Indicator */}
       {featuredAnime.length > 1 && (
@@ -200,20 +408,21 @@ const TrailerHero = React.memo(({ onOpenModal, featuredAnime }) => {
                 index === currentIndex && styles.activeDot
               ]}
               onPress={() => setCurrentIndex(index)}
+              activeOpacity={0.7}
             />
           ))}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 });
 
 // ========== DIVIDER ==========
-const SectionDivider = React.memo(({ title }) => (
+const SectionDivider = React.memo(({ text }) => (
   <View style={styles.dividerContainer}>
     <View style={styles.dividerLine} />
     <View style={styles.dividerTextContainer}>
-      <Text style={styles.dividerText}>{title}</Text>
+      <Text style={styles.dividerText}>{text}</Text>
     </View>
     <View style={styles.dividerLine} />
   </View>
@@ -235,14 +444,19 @@ const HomeScreen = ({ navigation }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [networkError, setNetworkError] = useState(null);
+  const [heroTouchable, setHeroTouchable] = useState(true);
 
   // Refs
   const searchTimeoutRef = useRef(null);
+  const scrollRef = useRef(null);
+  const heroSwipeFade = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Normalize anime data from API
   const normalizeAnime = useCallback((anime) => {
     if (!anime) return null;
-    
+
     return {
       id: anime.id || anime.malId || Math.random().toString(36).substr(2, 9),
       title: anime.title?.english || anime.title?.romaji || anime.title?.native || anime.title || "Unknown Title",
@@ -257,24 +471,35 @@ const HomeScreen = ({ navigation }) => {
       status: anime.status || anime.airing_status,
       genres: anime.genres || [],
       year: anime.year || anime.startDate?.year,
+      seasonYear: anime.seasonYear || anime.year,
       season: anime.season,
       format: anime.format,
+      trailer: anime.trailer,
     };
   }, []);
 
   // Fetch anime sections from API
   const fetchAnimeSections = useCallback(async () => {
     try {
-      console.log('Fetching anime sections from:', `${API_BASE_URL}/api/anime/anime-sections`);
-      
-      const response = await axios.get(`${API_BASE_URL}/api/anime/anime-sections`, {
-        timeout: 15000,
-      });
+      setNetworkError(null);
 
-    //   console.log('API Response:', response.data);
+      const url = `${API_BASE_URL}/api/anime/anime-sections`;
+      const maxRetries = 3;
+      const retryDelayMs = 1500;
+
+      let response = null;
+      for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+        try {
+          response = await axios.get(url, { timeout: 15000 });
+          break;
+        } catch (err) {
+          if (attempt === maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
+        }
+      }
 
       const data = response.data;
-      
+
       setSections({
         topAiring: (data.topAiring || []).map(normalizeAnime).filter(Boolean).slice(0, 12),
         mostWatched: (data.mostWatched || []).map(normalizeAnime).filter(Boolean).slice(0, 12),
@@ -283,23 +508,26 @@ const HomeScreen = ({ navigation }) => {
 
     } catch (error) {
       console.error('Error fetching anime sections:', error);
-      
+      setNetworkError('Unable to reach the server. Showing offline data.');
+
       // Fallback mock data if API fails
-      const mockAnime = (count, prefix) => 
+      const mockAnime = (count, prefix) =>
         Array.from({ length: count }, (_, i) => ({
           id: i + 1,
           title: `${prefix} Anime ${i + 1}`,
-          coverImage: { 
+          coverImage: {
             extraLarge: `https://picsum.photos/${CARD_WIDTH}/${CARD_HEIGHT}?random=${prefix}-${i}`,
             large: `https://picsum.photos/${CARD_WIDTH}/${CARD_HEIGHT}?random=${prefix}-${i}`,
           },
           bannerImage: `https://picsum.photos/${width}/400?random=${prefix}-banner-${i}`,
-          description: `This is ${prefix.toLowerCase()} anime number ${i + 1} with an interesting plot.`,
+          description: `This is ${prefix.toLowerCase()} anime number ${i + 1} with an interesting plot. This anime features amazing characters and an engaging storyline that will keep you hooked from start to finish.`,
           episodes: Math.floor(Math.random() * 24) + 1,
           averageScore: Math.floor(Math.random() * 30) + 70,
           status: ['releasing', 'finished', 'not_yet_released'][Math.floor(Math.random() * 3)],
-          genres: ['Action', 'Fantasy', 'Adventure', 'Drama'].slice(0, Math.floor(Math.random() * 3) + 1),
+          genres: ['Action', 'Fantasy', 'Adventure', 'Drama', 'Comedy', 'Sci-Fi'].slice(0, Math.floor(Math.random() * 4) + 1),
           year: 2023,
+          seasonYear: 2023,
+          trailer: Math.random() > 0.5 ? { id: 'dQw4w9WgXcQ' } : null,
         })).map(normalizeAnime);
 
       setSections({
@@ -327,7 +555,7 @@ const HomeScreen = ({ navigation }) => {
   // Search function
   const handleSearch = useCallback((text) => {
     setSearchQuery(text);
-    
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -346,7 +574,7 @@ const HomeScreen = ({ navigation }) => {
         const response = await axios.get(`${API_BASE_URL}/api/anime/search`, {
           params: { q: text, limit: 12 }
         });
-        
+
         const results = (response.data || []).map(normalizeAnime).filter(Boolean);
         setSearchResults(results);
       } catch (error) {
@@ -355,14 +583,14 @@ const HomeScreen = ({ navigation }) => {
         const mockResults = Array.from({ length: 8 }, (_, i) => ({
           id: i + 100,
           title: `Search Result ${i + 1} - "${text}"`,
-          coverImage: { 
+          coverImage: {
             extraLarge: `https://picsum.photos/${CARD_WIDTH}/${CARD_HEIGHT}?random=search-${i}`,
           },
-          description: `This anime matches your search for "${text}"`,
+          description: `This anime matches your search for "${text}" with an amazing storyline and characters that you will love.`,
           episodes: Math.floor(Math.random() * 24) + 1,
           averageScore: Math.floor(Math.random() * 30) + 60,
           status: 'releasing',
-          genres: ['Action', 'Adventure'],
+          genres: ['Action', 'Adventure', 'Fantasy'],
           year: 2023,
         })).map(normalizeAnime);
         setSearchResults(mockResults);
@@ -398,10 +626,10 @@ const HomeScreen = ({ navigation }) => {
         key={`grid-${isMobile ? 2 : 4}`}
         data={data}
         renderItem={({ item, index }) => (
-          <AnimeCard 
-            anime={item} 
-            onPress={openModal} 
-            index={index} 
+          <AnimeCard
+            anime={item}
+            onPress={openModal}
+            index={index}
           />
         )}
         keyExtractor={(item, index) => `anime-${item.id}-${index}`}
@@ -429,15 +657,20 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a1124" />
-      
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>OtakuShelf</Text>
       </View>
 
       {/* Main Content */}
-      <ScrollView
+      <Animated.ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -448,12 +681,29 @@ const HomeScreen = ({ navigation }) => {
             colors={['#ff5900']}
           />
         }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          {
+            useNativeDriver: true,
+            listener: (event) => {
+              const y = event.nativeEvent.contentOffset.y;
+              // Disable hero hit-testing once content scrolls under it
+              setHeroTouchable(y < 40);
+            },
+          }
+        )}
+        scrollEventThrottle={16}
       >
-        {/* Hero Section */}
-        <TrailerHero 
-          onOpenModal={openModal} 
-          featuredAnime={sections.topAiring.slice(0, 5)} 
-        />
+        {/* Hero Spacer */}
+        <View style={styles.heroSpacer} />
+
+        {/* Network Error Banner */}
+        {networkError && (
+          <View style={styles.networkBanner}>
+            <Ionicons name="cloud-offline" size={16} color="#fff" />
+            <Text style={styles.networkBannerText}>{networkError}</Text>
+          </View>
+        )}
 
         {/* Search Results or Regular Sections */}
         <View style={styles.content}>
@@ -507,107 +757,51 @@ const HomeScreen = ({ navigation }) => {
 
         {/* Bottom padding */}
         <View style={{ height: 100 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        {['Home', 'List', 'Search', 'AI'].map((item) => (
-          <TouchableOpacity
-            key={item}
-            style={[
-              styles.navItem,
-              item === 'Home' && styles.activeNavItem
-            ]}
-            onPress={() => navigation.navigate(item)}
-          >
-            <Ionicons
-              name={item === 'Home' ? 'home' : 
-                    item === 'List' ? 'list' : 
-                    item === 'Search' ? 'search' : 'sparkles'}
-              size={22}
-              color={item === 'Home' ? '#ff5900' : '#888'}
-            />
-            <Text style={[
-              styles.navText,
-              item === 'Home' && styles.activeNavText
-            ]}>
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Anime Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={closeModal}
+      {/* Hero Overlay */}
+      <Animated.View
+        pointerEvents={heroTouchable ? 'box-none' : 'none'}
+        style={[
+          styles.heroOverlay,
+          {
+            opacity: Animated.multiply(
+              scrollY.interpolate({
+                inputRange: [0, 200],
+                outputRange: [1, 0],
+                extrapolate: 'clamp',
+              }),
+              Animated.subtract(1, heroSwipeFade)
+            ),
+          },
+        ]}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            
-            {selectedAnime && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Image
-                  source={{ uri: selectedAnime.bannerImage || selectedAnime.coverImage?.extraLarge }}
-                  style={styles.modalImage}
-                  resizeMode="cover"
-                />
-                
-                <View style={styles.modalInfo}>
-                  <Text style={styles.modalTitle}>{selectedAnime.title}</Text>
-                  
-                  <View style={styles.modalMeta}>
-                    {selectedAnime.averageScore && (
-                      <View style={styles.metaItem}>
-                        <MaterialIcons name="star" size={18} color="#FFD700" />
-                        <Text style={styles.metaText}>{(selectedAnime.averageScore / 10).toFixed(1)}/10</Text>
-                      </View>
-                    )}
-                    
-                    {selectedAnime.episodes && (
-                      <View style={styles.metaItem}>
-                        <MaterialIcons name="movie" size={18} color="#4ECDC4" />
-                        <Text style={styles.metaText}>{selectedAnime.episodes} episodes</Text>
-                      </View>
-                    )}
-                    
-                    {selectedAnime.year && (
-                      <View style={styles.metaItem}>
-                        <MaterialIcons name="calendar-today" size={18} color="#FF6B6B" />
-                        <Text style={styles.metaText}>{selectedAnime.year}</Text>
-                      </View>
-                    )}
-                  </View>
-                  
-                  {selectedAnime.description && (
-                    <Text style={styles.modalDescription}>
-                      {selectedAnime.description}
-                    </Text>
-                  )}
-                  
-                  {selectedAnime.genres && selectedAnime.genres.length > 0 && (
-                    <View style={styles.genresSection}>
-                      <Text style={styles.sectionLabel}>Genres</Text>
-                      <View style={styles.genresContainer}>
-                        {selectedAnime.genres.slice(0, 6).map((genre, index) => (
-                          <View key={index} style={styles.genreTag}>
-                            <Text style={styles.genreText}>{genre}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+        <TrailerHero
+          onOpenModal={openModal}
+          onSwipeUp={() => {
+            heroSwipeFade.setValue(0);
+            Animated.timing(heroSwipeFade, {
+              toValue: 1,
+              duration: 240,
+              useNativeDriver: true,
+            }).start(() => {
+              setTimeout(() => heroSwipeFade.setValue(0), 400);
+            });
+            if (scrollRef.current) {
+              scrollRef.current.scrollTo({ y: HERO_HEIGHT - 40, animated: true });
+            }
+          }}
+          featuredAnime={sections.topAiring.slice(0, 5)}
+        />
+      </Animated.View>
+
+      <AnimeModal
+        visible={modalVisible}
+        anime={selectedAnime}
+        onClose={closeModal}
+      />
+
+      <BottomNavBar />
     </SafeAreaView>
   );
 };
@@ -619,137 +813,258 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a1124',
   },
+
   loadingScreen: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#0a1124',
   },
+
   loadingText: {
     color: '#fff',
     marginTop: 12,
     fontSize: 16,
+    fontFamily: FONT_REGULAR,
   },
-  
+
   // Header
   header: {
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
-    paddingBottom: 16,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingTop: 0,
+    paddingBottom: 0,
     paddingHorizontal: 16,
-    backgroundColor: '#0a1124',
+    backgroundColor: 'transparent',
   },
+
   logo: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 12,
+    marginTop: 45,
+    fontFamily: FONT_REGULAR,
   },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-    marginLeft: 8,
-    paddingVertical: 2,
-  },
-  
+
   // Scroll View
   scrollView: {
     flex: 1,
   },
+
   content: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  
-  // Hero Section
-  heroContainer: {
-    height: 300,
+
+  networkBanner: {
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 89, 0, 0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  networkBannerText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  // ========== TRAILER HERO STYLES ==========
+  trailerHeroContainer: {
+    height: HERO_HEIGHT,
     marginBottom: 24,
     position: 'relative',
+    overflow: 'hidden',
   },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: HERO_HEIGHT,
+    zIndex: 5,
+  },
+  heroSpacer: {
+    height: HERO_HEIGHT,
+  },
+
+  heroImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+
+  heroGradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroBottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: -20,
+    height: 140,
+  },
+
   heroPlaceholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#1a1a2e',
   },
+
   heroPlaceholderText: {
     color: '#fff',
     marginTop: 10,
     fontSize: 14,
+    fontFamily: FONT_REGULAR,
   },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroContent: {
+
+  // Content Overlay (Exact match from web)
+  contentOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
+    bottom: isMobile ? '10%' : '20%',
+    left: isMobile ? '3%' : '10%',
+    right: isMobile ? '3%' : '10%',
+    maxWidth: 600,
   },
-  heroTitle: {
-    fontSize: 26,
+
+  animeTitle: {
+    fontSize: isMobile ? 28 : 40,
     fontWeight: '900',
     color: '#fff',
-    marginBottom: 10,
+    marginBottom: 8,
+    lineHeight: isMobile ? 34 : 48,
+    letterSpacing: 0.5,
+    fontFamily: FONT_REGULAR,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+
+  animeMeta: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginRight: 6,
+  },
+
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontFamily: FONT_REGULAR,
+  },
+
+  metaText: {
+    fontSize: isMobile ? 13 : 15,
+    color: '#fff',
+    fontWeight: '500',
+    fontFamily: FONT_REGULAR,
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-  heroMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
+
+  metaSeparator: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginHorizontal: 4,
   },
-  heroScore: {
-    fontSize: 16,
+
+  score: {
+    fontSize: isMobile ? 13 : 15,
     color: '#FFD700',
     fontWeight: '600',
-    marginLeft: 6,
+    fontFamily: FONT_REGULAR,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  heroButton: {
+
+  animeDescription: {
+    fontSize: isMobile ? 14 : 16,
+    color: '#fff',
+    lineHeight: isMobile ? 20 : 24,
+    marginBottom: 12,
+    fontFamily: FONT_REGULAR,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+
+  genres: {
+    fontSize: isMobile ? 13 : 15,
+    color: '#ddd',
+    marginBottom: 20,
+    fontFamily: FONT_REGULAR,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+
+  genresLabel: {
+    color: '#fff',
+    fontWeight: '600',
+    fontFamily: FONT_REGULAR,
+  },
+
+  detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ff5900',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ff7300',
+    paddingHorizontal: isMobile ? 24 : 32,
+    paddingVertical: isMobile ? 14 : 16,
+    borderRadius: 25,
     alignSelf: 'flex-start',
+    minWidth: isMobile ? 140 : 160,
+    minHeight: 44,
   },
-  heroButtonText: {
-    fontSize: 15,
+
+  detailsButtonText: {
+    fontSize: isMobile ? 15 : 17,
     fontWeight: '700',
     color: '#000',
-    marginLeft: 6,
+    textTransform: 'uppercase',
+    fontFamily: FONT_REGULAR,
   },
+
+  
+  // Dots Indicator
   dotsContainer: {
     position: 'absolute',
-    bottom: 15,
+    bottom: 20,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    marginHorizontal: 4,
   },
   activeDot: {
     backgroundColor: '#ff5900',
@@ -757,12 +1072,13 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  
+
   // Divider
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginTop: 16,
+    marginBottom: 16,
   },
   dividerLine: {
     flex: 1,
@@ -777,8 +1093,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ff6b6b',
     textAlign: 'center',
+    fontFamily: 'SN Pro',
   },
-  
+
   // Grid
   gridContainer: {
     paddingBottom: 10,
@@ -786,17 +1103,19 @@ const styles = StyleSheet.create({
   gridRow: {
     justifyContent: 'space-between',
   },
-  
-  // Anime Card
+
+  // Anime Card - UPDATED to match web version exactly
   animeCardContainer: {
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#1a1f2e',
-    elevation: 3,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'beige',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    elevation: 5,
   },
   cardTouchable: {
     flex: 1,
@@ -808,37 +1127,59 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
   },
   imagePlaceholder: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#1a1a2e',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 20,
   },
-  titleGradient: {
+  // Gradient fade from below - matches web exactly
+  gradientOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     height: '40%',
-    justifyContent: 'flex-end',
-    paddingBottom: 8,
-    borderRadius: 12,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  // Title overlay - matches web card-title-bottom
+  titleOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 8,
+    paddingBottom: 12,
+    paddingHorizontal: 10,
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   cardTitle: {
-    fontSize: 13,
+    fontFamily: 'Outfit',
     fontWeight: '600',
-    color: '#ff6a00',
+    letterSpacing: 1,
+    fontSize: isMobile ? 14 : 16,
     textAlign: 'center',
-    paddingHorizontal: 6,
-    lineHeight: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    lineHeight: isMobile ? 20 : 22,
+    color: '#ff6a00',
+    textShadowColor: 'rgba(190, 79, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+    includeFontPadding: true,
+    textAlignVertical: 'center',
+    padding: 0,
+    margin: 0,
   },
-  
+
   // Search States
   searchLoading: {
     alignItems: 'center',
@@ -849,6 +1190,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginTop: 12,
+    fontFamily: FONT_REGULAR,
   },
   noResults: {
     alignItems: 'center',
@@ -860,8 +1202,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 15,
     textAlign: 'center',
+    fontFamily: FONT_REGULAR,
   },
-  
+
   // No Data
   noDataContainer: {
     padding: 40,
@@ -870,126 +1213,9 @@ const styles = StyleSheet.create({
   noDataText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 16,
+    fontFamily: FONT_REGULAR,
   },
-  
-  // Bottom Navigation
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    backgroundColor: '#0a0f1e',
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1f2e',
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  activeNavItem: {
-    backgroundColor: 'rgba(255, 89, 0, 0.1)',
-  },
-  navText: {
-    fontSize: 11,
-    color: '#888',
-    marginTop: 4,
-  },
-  activeNavText: {
-    color: '#ff5900',
-    fontWeight: '600',
-  },
-  
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxHeight: '85%',
-    backgroundColor: '#1a1f2e',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalImage: {
-    width: '100%',
-    height: 200,
-  },
-  modalInfo: {
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 15,
-  },
-  modalMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 15,
-    marginBottom: 20,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 15,
-    color: '#ddd',
-    fontWeight: '500',
-  },
-  modalDescription: {
-    fontSize: 16,
-    color: '#ddd',
-    lineHeight: 1.5,
-    marginBottom: 20,
-  },
-  genresSection: {
-    marginTop: 10,
-  },
-  sectionLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 10,
-  },
-  genresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  genreTag: {
-    backgroundColor: '#ff5900',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  genreText: {
-    color: '#000',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+
 });
 
 export default HomeScreen;

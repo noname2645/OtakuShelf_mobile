@@ -1,25 +1,27 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   Modal,
-  ScrollView,
   Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
 const { width, height } = Dimensions.get('window');
+const MODAL_HEADER_HEIGHT = height * 0.42;
 
 const AnimeModal = ({ visible, anime, onClose }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isAddingToList, setIsAddingToList] = useState(false);
   const { user, API } = useAuth();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const animeData = useMemo(() => {
     if (!anime) return null;
@@ -112,27 +114,47 @@ const AnimeModal = ({ visible, anime, onClose }) => {
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
+        <View style={styles.backdrop} />
         <View style={styles.modalContainer}>
           {/* Header with Banner */}
-          <View style={styles.header}>
+          <Animated.View
+            pointerEvents="box-none"
+            style={[
+              styles.header,
+              {
+                opacity: scrollY.interpolate({
+                  inputRange: [0, 180],
+                  outputRange: [1, 0],
+                  extrapolate: 'clamp',
+                }),
+              },
+            ]}
+          >
             <Image
               source={{ uri: animeData.bannerImage }}
               style={styles.bannerImage}
               resizeMode="cover"
             />
             <LinearGradient
-              colors={['transparent', 'rgba(10, 15, 30, 0.9)', '#0a0f1e']}
+              colors={['transparent', 'rgba(10, 15, 30, 0.65)', 'rgba(10, 15, 30, 0.92)']}
+              locations={[0.06, 0.58, 1]}
               style={styles.headerGradient}
             />
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
-          <ScrollView 
+          <Animated.ScrollView
             style={styles.content}
             showsVerticalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
           >
+            <View style={styles.headerSpacer} />
             {/* Title */}
             <Text style={styles.title} numberOfLines={3}>
               {animeData.title}
@@ -150,13 +172,6 @@ const AnimeModal = ({ visible, anime, onClose }) => {
                 <Text style={styles.statText}>{animeData.status}</Text>
               </View>
             </View>
-
-            {/* Cover Image */}
-            <Image
-              source={{ uri: animeData.image }}
-              style={styles.coverImage}
-              resizeMode="cover"
-            />
 
             {/* Tabs */}
             <View style={styles.tabContainer}>
@@ -229,7 +244,7 @@ const AnimeModal = ({ visible, anime, onClose }) => {
             </View>
 
             <View style={{ height: 50 }} />
-          </ScrollView>
+          </Animated.ScrollView>
         </View>
       </View>
     </Modal>
@@ -239,14 +254,26 @@ const AnimeModal = ({ visible, anime, onClose }) => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: 'transparent',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
   },
   modalContainer: {
     flex: 1,
     backgroundColor: '#0a0f1e',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
   },
   header: {
-    height: height * 0.25,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: MODAL_HEADER_HEIGHT,
+    zIndex: 2,
   },
   bannerImage: {
     width: '100%',
@@ -278,6 +305,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+    marginTop: 12,
+  },
+  headerSpacer: {
+    height: MODAL_HEADER_HEIGHT,
   },
   title: {
     fontSize: 28,
@@ -302,12 +333,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-  },
-  coverImage: {
-    width: '100%',
-    height: height * 0.3,
-    borderRadius: 12,
-    marginBottom: 20,
   },
   tabContainer: {
     flexDirection: 'row',
