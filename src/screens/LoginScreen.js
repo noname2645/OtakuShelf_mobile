@@ -33,30 +33,49 @@ const LoginScreen = ({ navigation }) => {
       const res = await axios.post(
         `${API}/auth/login`,
         { email, password },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          timeout: 10000
+        }
       );
 
-      if (res.data.user) {
-        await login(res.data.user);
+      console.log('Login response:', res.data);
+
+      if (res.data.user && res.data.token) {
+        // Pass both user data and token to login function
+        await login(res.data.user, res.data.token);
+
+        // Clear form
+        setEmail('');
+        setPassword('');
+
+        // Navigate to home
         navigation.replace('Home');
+      } else {
+        Alert.alert('Error', 'Invalid response from server');
       }
     } catch (err) {
       console.error('Login error:', err);
-      Alert.alert(
-        'Login Failed',
-        err.response?.data?.message || 'Error logging in'
-      );
+
+      let errorMessage = 'Error logging in';
+
+      if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Connection timeout. Please check your internet connection.';
+      } else if (err.response) {
+        errorMessage = err.response.data?.message || 'Invalid credentials';
+      } else if (err.request) {
+        errorMessage = 'Cannot connect to server. Please try again later.';
+      }
+
+      Alert.alert('Login Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    Alert.alert(
-      'Google Login',
-      'Google OAuth is not available in mobile app yet. Please use email/password login.',
-      [{ text: 'OK' }]
-    );
+    // Navigate to Google OAuth screen
+    navigation.navigate('GoogleAuth');
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,23 @@ import {
   Dimensions,
   ActivityIndicator,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
+import RelatedSection from './RelatedSection';
 
 const { width, height } = Dimensions.get('window');
 const MODAL_HEADER_HEIGHT = height * 0.42;
 
-const AnimeModal = ({ visible, anime, onClose }) => {
+const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isAddingToList, setIsAddingToList] = useState(false);
   const { user, API } = useAuth();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const tabAnim = useRef(new Animated.Value(0)).current;
 
   const animeData = useMemo(() => {
     if (!anime) return null;
@@ -36,7 +40,6 @@ const AnimeModal = ({ visible, anime, onClose }) => {
     let image = anime.coverImage?.extraLarge || 
                 anime.coverImage?.large || 
                 anime.coverImage?.medium ||
-                anime.bannerImage || 
                 'https://via.placeholder.com/300x450';
 
     let genres = [];
@@ -51,6 +54,17 @@ const AnimeModal = ({ visible, anime, onClose }) => {
       score = (anime.score / 10).toFixed(1);
     }
 
+    let studio = "N/A";
+    if (anime.studios) {
+      if (anime.studios.edges) {
+        const edges = anime.studios.edges.slice(0, 2);
+        studio = edges.map(edge => edge?.node?.name).filter(Boolean).join(", ") || "N/A";
+      } else if (anime.studios.nodes) {
+        const nodes = anime.studios.nodes.slice(0, 2);
+        studio = nodes.map(node => node?.name).filter(Boolean).join(", ") || "N/A";
+      }
+    }
+
     return {
       title,
       image,
@@ -59,8 +73,14 @@ const AnimeModal = ({ visible, anime, onClose }) => {
       episodes: anime.episodes || anime.episodeCount || "?",
       status: anime.status || "Unknown",
       format: anime.format || anime.type || "Unknown",
+      rating: anime.isAdult ? "R - 17+ (violence & profanity)" : (anime.rating || "PG-13"),
+      studio,
       synopsis: anime.description?.replace(/<[^>]*>/g, '') || "No description available.",
       bannerImage: anime.bannerImage || image,
+      startDate: anime.startDate,
+      endDate: anime.endDate,
+      trailer: anime.trailer,
+      relations: anime.relations?.edges || [],
     };
   }, [anime]);
 
@@ -75,11 +95,54 @@ const AnimeModal = ({ visible, anime, onClose }) => {
     const statusColors = {
       "FINISHED": "#22c55e",
       "RELEASING": "#3b82f6",
-      "NOT_YET_RELEASED": "#f59e0b",
+      "NOT_YET_RELEASED": "#3b82f6",
       "CANCELLED": "#ef4444",
       "HIATUS": "#f59e0b"
     };
     return statusColors[normalizedStatus] || "#6b7280";
+  };
+
+  const formatAniListDate = (dateObj) => {
+    if (!dateObj) return "TBA";
+    if (typeof dateObj === 'string') {
+      const parsed = new Date(dateObj);
+      if (Number.isNaN(parsed.getTime())) return "TBA";
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const day = String(parsed.getDate()).padStart(2, "0");
+      const month = months[parsed.getMonth()];
+      return `${day} ${month} ${parsed.getFullYear()}`;
+    }
+    if (!dateObj.year) return "TBA";
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const day = dateObj.day ? String(dateObj.day).padStart(2, "0") : "??";
+    const month = dateObj.month ? months[dateObj.month - 1] : "??";
+    return `${day} ${month} ${dateObj.year}`;
+  };
+
+  const getAiredRange = () => {
+    if (!anime) return "TBA";
+    const startValid = !!animeData.startDate && formatAniListDate(animeData.startDate) !== "TBA";
+    const endValid = !!animeData.endDate && formatAniListDate(animeData.endDate) !== "TBA";
+
+    if (!startValid && !endValid) return "TBA";
+    if (anime.format === "MOVIE" && startValid) {
+      return formatAniListDate(animeData.startDate);
+    }
+    if (startValid && endValid) {
+      return `${formatAniListDate(animeData.startDate)} - ${formatAniListDate(animeData.endDate)}`;
+    }
+    if (startValid) {
+      const startDate = formatAniListDate(animeData.startDate);
+      return `${startDate} - ${animeData.status === 'RELEASING' ? 'Ongoing' : 'TBA'}`;
+    }
+    return "TBA";
+  };
+
+  const getTrailerId = () => {
+    if (animeData?.trailer?.site === 'youtube' && animeData?.trailer?.id) {
+      return animeData.trailer.id;
+    }
+    return null;
   };
 
   const addToList = async (status) => {
@@ -103,6 +166,21 @@ const AnimeModal = ({ visible, anime, onClose }) => {
       setIsAddingToList(false);
     }
   };
+
+  useEffect(() => {
+    if (visible) {
+      setActiveTab('info');
+    }
+  }, [visible, anime?.id]);
+
+  useEffect(() => {
+    tabAnim.setValue(0);
+    Animated.timing(tabAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, tabAnim]);
 
   if (!visible || !animeData) return null;
 
@@ -135,6 +213,11 @@ const AnimeModal = ({ visible, anime, onClose }) => {
               style={styles.bannerImage}
               resizeMode="cover"
             />
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeBadgeText}>{animeData.format}</Text>
+              <View style={styles.typeBadgeDot} />
+              <Text style={styles.typeBadgeDate}>{getAiredRange()}</Text>
+            </View>
             <LinearGradient
               colors={['transparent', 'rgba(10, 15, 30, 0.65)', 'rgba(10, 15, 30, 0.92)']}
               locations={[0.06, 0.58, 1]}
@@ -168,8 +251,8 @@ const AnimeModal = ({ visible, anime, onClose }) => {
               <View style={styles.statBadge}>
                 <Text style={styles.statText}>{animeData.episodes} Episodes</Text>
               </View>
-              <View style={[styles.statBadge, { backgroundColor: getStatusColor(animeData.status) }]}>
-                <Text style={styles.statText}>{animeData.status}</Text>
+              <View style={styles.statBadge}>
+                <Text style={styles.statText}>{animeData.rating}</Text>
               </View>
             </View>
 
@@ -183,36 +266,105 @@ const AnimeModal = ({ visible, anime, onClose }) => {
                   Synopsis
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'related' && styles.activeTab]}
+                onPress={() => setActiveTab('related')}
+              >
+                <Text style={[styles.tabText, activeTab === 'related' && styles.activeTabText]}>
+                  Related
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'trailer' && styles.activeTab]}
+                onPress={() => setActiveTab('trailer')}
+              >
+                <Text style={[styles.tabText, activeTab === 'trailer' && styles.activeTabText]}>
+                  Trailer
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Synopsis */}
-            {activeTab === 'info' && (
-              <View style={styles.tabContent}>
-                <Text style={styles.synopsis}>
-                  {truncateSynopsis(animeData.synopsis, 500)}
-                </Text>
+            {/* Tab Content */}
+            <Animated.View
+              key={activeTab}
+              style={[
+                styles.tabContent,
+                {
+                  opacity: tabAnim,
+                  transform: [
+                    {
+                      translateY: tabAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [8, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {activeTab === 'info' && (
+                <>
+                  <Text style={styles.synopsis}>
+                    {truncateSynopsis(animeData.synopsis, 500)}
+                  </Text>
 
-                {/* Genres */}
-                {animeData.genres.length > 0 && (
-                  <View style={styles.genresContainer}>
-                    <Text style={styles.genresLabel}>Genres:</Text>
-                    <View style={styles.genresRow}>
-                      {animeData.genres.map((genre, index) => (
-                        <View key={index} style={styles.genrePill}>
-                          <Text style={styles.genreText}>{genre}</Text>
-                        </View>
-                      ))}
-                    </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Status:</Text>
+                    <Text style={[styles.infoValue, { color: getStatusColor(animeData.status) }]}>
+                      {animeData.status}
+                    </Text>
                   </View>
-                )}
 
-                {/* Info Row */}
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Format:</Text>
-                  <Text style={styles.infoValue}>{animeData.format}</Text>
-                </View>
-              </View>
-            )}
+                  {/* Genres */}
+                  {animeData.genres.length > 0 && (
+                    <View style={styles.genresContainer}>
+                      <Text style={styles.genresLabel}>Genres:</Text>
+                      <View style={styles.genresRow}>
+                        {animeData.genres.map((genre, index) => (
+                          <View key={index} style={styles.genrePill}>
+                            <Text style={styles.genreText}>{genre}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Studio:</Text>
+                    <Text style={styles.infoValue}>{animeData.studio}</Text>
+                  </View>
+                </>
+              )}
+
+              {activeTab === 'related' && (
+                <RelatedSection
+                  animeId={anime?.id}
+                  animeMalId={anime?.idMal}
+                  onSelect={(selected) => {
+                    if (typeof onOpenAnime === 'function') {
+                      onOpenAnime(selected);
+                    }
+                    setActiveTab('info');
+                  }}
+                />
+              )}
+
+              {activeTab === 'trailer' && (
+                <>
+                  {getTrailerId() ? (
+                    <View style={styles.trailerWrapper}>
+                      <YoutubePlayer
+                        height={220}
+                        play={false}
+                        videoId={getTrailerId()}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={styles.emptyText}>No trailer available.</Text>
+                  )}
+                </>
+              )}
+            </Animated.View>
 
             {/* Add to List Buttons */}
             <View style={styles.actionButtons}>
@@ -302,6 +454,40 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
+  typeBadge: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 16,
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    zIndex: 3,
+  },
+  typeBadgeText: {
+    color: '#8cc8ff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  typeBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    marginHorizontal: 10,
+  },
+  typeBadgeDate: {
+    color: '#e5e7eb',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
@@ -360,6 +546,15 @@ const styles = StyleSheet.create({
   tabContent: {
     marginBottom: 20,
   },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+  },
+  trailerWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
   synopsis: {
     color: '#ccc',
     fontSize: 16,
@@ -393,19 +588,21 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   infoLabel: {
-    color: '#999',
+    color: '#fff',
     fontSize: 16,
+    fontWeight: '700',
+    marginRight: 6,
   },
   infoValue: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   actionButtons: {
     marginTop: 20,

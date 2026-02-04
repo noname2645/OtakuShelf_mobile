@@ -1,11 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL, AXIOS_CONFIG } from '../config/api';
 
 const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: API_BASE_URL,
+  ...AXIOS_CONFIG,
 });
 
 export default api;
+

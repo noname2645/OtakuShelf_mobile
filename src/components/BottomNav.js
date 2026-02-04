@@ -164,7 +164,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: 'center',
-    paddingBottom: Platform.OS === 'ios' ? 16 : 8,
     pointerEvents: 'box-none',
   },
   bottomBar: {

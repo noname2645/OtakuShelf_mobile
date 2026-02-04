@@ -53,30 +53,61 @@ const RegisterScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Register
-      const registerRes = await axios.post(
+      // Step 1: Register the user
+      await axios.post(
         `${API}/auth/register`,
         { email, password },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          timeout: 10000
+        }
       );
 
-      // Auto-login after registration
+      console.log('Registration successful, attempting auto-login...');
+
+      // Step 2: Auto-login after successful registration
       const loginRes = await axios.post(
         `${API}/auth/login`,
         { email, password },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          timeout: 10000
+        }
       );
 
-      if (loginRes.data.user) {
-        await login(loginRes.data.user);
-        navigation.replace('Home');
+      if (loginRes.data.user && loginRes.data.token) {
+        // Pass both user data and token to login function
+        await login(loginRes.data.user, loginRes.data.token);
+
+        // Clear form
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+
+        // Show success message
+        Alert.alert(
+          'Welcome!',
+          'Your account has been created successfully.',
+          [{ text: 'OK', onPress: () => navigation.replace('Home') }]
+        );
+      } else {
+        Alert.alert('Error', 'Registration successful but login failed. Please login manually.');
+        navigation.navigate('Login');
       }
     } catch (err) {
       console.error('Register error:', err);
-      Alert.alert(
-        'Registration Failed',
-        err.response?.data?.message || 'Error registering user'
-      );
+
+      let errorMessage = 'Error registering user';
+
+      if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Connection timeout. Please check your internet connection.';
+      } else if (err.response) {
+        errorMessage = err.response.data?.message || 'Registration failed';
+      } else if (err.request) {
+        errorMessage = 'Cannot connect to server. Please try again later.';
+      }
+
+      Alert.alert('Registration Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -21,13 +21,12 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import BottomNavBar from '../components/BottomNav';
 import AnimeModal from '../components/AnimeModal';
+import { useAuth } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 const { width, height } = Dimensions.get('window');
 const isMobile = width <= 768;
 const HERO_HEIGHT = height * 0.85;
-
-// API Configuration
-const API_BASE_URL = process.env.API_BASE_URL || 'https://otakushelf-uuvw.onrender.com';
 
 // Card dimensions - match web exactly
 const CARD_WIDTH = isMobile ? (width - 60) / 2 : Math.floor((width - 100) / 4);
@@ -43,7 +42,6 @@ const AnimeCard = React.memo(({ anime, onPress, index }) => {
   const imageUrl = useMemo(() => {
     if (anime?.coverImage?.extraLarge) return anime.coverImage.extraLarge;
     if (anime?.coverImage?.large) return anime.coverImage.large;
-    if (anime?.bannerImage) return anime.bannerImage;
     return `https://picsum.photos/${CARD_WIDTH}/${CARD_HEIGHT}?random=${index}`;
   }, [anime, index]);
 
@@ -400,7 +398,7 @@ const TrailerHero = React.memo(({ onOpenModal, featuredAnime, onSwipeUp }) => {
       {/* Dots Indicator */}
       {featuredAnime.length > 1 && (
         <View style={styles.dotsContainer}>
-          {featuredAnime.slice(0, 5).map((_, index) => (
+          {featuredAnime.slice(0, 10).map((_, index) => (
             <TouchableOpacity
               key={index}
               style={[
@@ -430,6 +428,7 @@ const SectionDivider = React.memo(({ text }) => (
 
 // ========== MAIN HOMESCREEN COMPONENT ==========
 const HomeScreen = ({ navigation }) => {
+  const { user } = useAuth();
   // State
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -470,11 +469,15 @@ const HomeScreen = ({ navigation }) => {
       averageScore: anime.averageScore || anime.score,
       status: anime.status || anime.airing_status,
       genres: anime.genres || [],
+      studios: anime.studios,
+      startDate: anime.startDate,
+      endDate: anime.endDate,
       year: anime.year || anime.startDate?.year,
       seasonYear: anime.seasonYear || anime.year,
       season: anime.season,
       format: anime.format,
       trailer: anime.trailer,
+      relations: anime.relations,
     };
   }, []);
 
@@ -648,15 +651,15 @@ const HomeScreen = ({ navigation }) => {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingScreen}>
+      <View style={styles.loadingScreen}>
         <ActivityIndicator size="large" color="#ff5900" />
         <Text style={styles.loadingText}>Loading anime...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
         backgroundColor="transparent"
@@ -666,6 +669,14 @@ const HomeScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>OtakuShelf</Text>
+        {!user && (
+          <TouchableOpacity
+            style={styles.getStartedButton}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={styles.getStartedButtonText}>Get Started</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Main Content */}
@@ -791,7 +802,7 @@ const HomeScreen = ({ navigation }) => {
               scrollRef.current.scrollTo({ y: HERO_HEIGHT - 40, animated: true });
             }
           }}
-          featuredAnime={sections.topAiring.slice(0, 5)}
+          featuredAnime={sections.topAiring.slice(0, 10)}
         />
       </Animated.View>
 
@@ -799,10 +810,14 @@ const HomeScreen = ({ navigation }) => {
         visible={modalVisible}
         anime={selectedAnime}
         onClose={closeModal}
+        onOpenAnime={(nextAnime) => {
+          setSelectedAnime(nextAnime);
+          setModalVisible(true);
+        }}
       />
 
       <BottomNavBar />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -839,6 +854,9 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     paddingHorizontal: 16,
     backgroundColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
   logo: {
@@ -847,6 +865,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 45,
     fontFamily: FONT_REGULAR,
+  },
+
+  getStartedButton: {
+    backgroundColor: '#ff5900',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 45,
+  },
+
+  getStartedButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 
   // Scroll View
@@ -1048,7 +1080,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT_REGULAR,
   },
 
-  
+
   // Dots Indicator
   dotsContainer: {
     position: 'absolute',
@@ -1077,9 +1109,10 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 16,
+    // marginTop: 24,
+    marginBottom: 24,
   },
+
   dividerLine: {
     flex: 1,
     height: 2,
@@ -1094,11 +1127,12 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     textAlign: 'center',
     fontFamily: 'SN Pro',
+    letterSpacing: 1,
   },
 
   // Grid
   gridContainer: {
-    paddingBottom: 10,
+    paddingBottom: 0,
   },
   gridRow: {
     justifyContent: 'space-between',

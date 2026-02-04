@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 const AuthContext = createContext();
 
@@ -17,8 +18,8 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // IMPORTANT: Replace with your actual API URL
-const API = process.env.EXPO_PUBLIC_API_URL;
+  // API base URL from centralized config
+  const API = API_BASE_URL;
 
 
   const storeMinimalUser = useCallback(async (userData) => {
@@ -144,15 +145,27 @@ const API = process.env.EXPO_PUBLIC_API_URL;
   }, [checkAuthStatus]);
 
   const login = useCallback(async (userData, authToken) => {
-    if (authToken) {
-      await AsyncStorage.setItem("token", authToken);
+    try {
+      // Store token if provided
+      if (authToken) {
+        await AsyncStorage.setItem("token", authToken);
+      }
+
+      // Fetch fresh profile data
+      const profileData = await fetchFreshProfile(userData._id || userData.id);
+
+      // Update state
+      setUser(userData);
+      setProfile(profileData);
+
+      // Store minimal user data for offline access
+      await storeMinimalUser(userData);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Login error in AuthContext:', error);
+      throw error;
     }
-
-    const profileData = await fetchFreshProfile(userData._id);
-
-    setUser(userData);
-    setProfile(profileData);
-    await storeMinimalUser(userData);
   }, [fetchFreshProfile, storeMinimalUser]);
 
   const logout = useCallback(async () => {
