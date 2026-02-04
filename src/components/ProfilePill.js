@@ -31,7 +31,7 @@ const ProfilePill = ({ user, logout, navigation }) => {
                 activeOpacity={0.8}
             >
                 <LinearGradient
-                    colors={['rgba(255, 89, 0, 0.1)', 'rgba(255, 89, 0, 0.2)']}
+                    colors={['rgba(15, 20, 35, 0.9)', 'rgba(30, 35, 50, 0.95)']}
                     style={localStyles.pillGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
