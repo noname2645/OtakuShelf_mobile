@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  Animated
+  Animated,
+  SectionList
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -485,11 +486,78 @@ const ListScreen = ({ navigation }) => {
     const list = animeList[activeTab];
     if (!Array.isArray(list) || list.length === 0) return [];
 
-    return list.slice().sort((a, b) => {
-      const d1 = new Date(activeTab === 'completed' ? (a.finishDate || a.addedDate || 0) : (a.addedDate || a.createdAt || 0));
-      const d2 = new Date(activeTab === 'completed' ? (b.finishDate || b.addedDate || 0) : (b.addedDate || b.createdAt || 0));
-      return d2 - d1;
+    // Separate anime with and without dates
+    const animeWithDates = [];
+    const animeWithoutDates = [];
+
+    list.forEach(anime => {
+      let hasDate = false;
+      if (activeTab === 'completed') {
+        if (anime.finishDate || anime.addedDate || anime.createdAt || anime.updatedAt) hasDate = true;
+      } else {
+        if (anime.addedDate || anime.createdAt || anime.updatedAt) hasDate = true;
+      }
+
+      if (hasDate) animeWithDates.push(anime);
+      else animeWithoutDates.push(anime);
     });
+
+    // Sort anime with dates (newest first)
+    animeWithDates.sort((a, b) => {
+      const dateA = new Date(
+        activeTab === 'completed'
+          ? (a.finishDate || a.addedDate || a.createdAt || a.updatedAt)
+          : (a.addedDate || a.createdAt || a.updatedAt)
+      );
+      const dateB = new Date(
+        activeTab === 'completed'
+          ? (b.finishDate || b.addedDate || b.createdAt || b.updatedAt)
+          : (b.addedDate || b.createdAt || b.updatedAt)
+      );
+      return dateB - dateA;
+    });
+
+    // Sort anime without dates alphabetically
+    animeWithoutDates.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+    // Group only anime with valid dates using the existing helper (but customized input)
+    // We can reuse the helper or just do it logic here. Reuse helper is slightly weird because helper also sorts groups.
+    // Let's manually group to ensure it matches exactly what we want.
+
+    const groups = {};
+    animeWithDates.forEach(anime => {
+      const date = new Date(
+        activeTab === 'completed'
+          ? (anime.finishDate || anime.addedDate || anime.createdAt || anime.updatedAt)
+          : (anime.addedDate || anime.createdAt || anime.updatedAt)
+      );
+
+      const month = date.toLocaleString('default', { month: 'long' });
+      const year = date.getFullYear();
+      const key = `${month} ${year}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          title: key,
+          sortDate: new Date(date.getFullYear(), date.getMonth(), 1), // for group sorting
+          anime: []
+        };
+      }
+      groups[key].anime.push(anime);
+    });
+
+    // Sort the groups
+    const sortedGroups = Object.values(groups).sort((a, b) => b.sortDate - a.sortDate);
+
+    // Add No Date header if needed
+    if (animeWithoutDates.length > 0) {
+      sortedGroups.push({
+        title: "No Date Available",
+        anime: animeWithoutDates
+      });
+    }
+
+    return sortedGroups;
   }, [animeList, activeTab]);
 
   // Actions
@@ -660,6 +728,67 @@ const ListScreen = ({ navigation }) => {
 
 
 
+  // Prepare data for SectionList (Virtualization)
+  const sections = useMemo(() => {
+    if (!sortedAnimeList || sortedAnimeList.length === 0) return [];
+
+    return sortedAnimeList.map(group => {
+      // Chunk the anime array into pairs for 2-column grid
+      const rows = [];
+      for (let i = 0; i < group.anime.length; i += 2) {
+        rows.push(group.anime.slice(i, i + 2));
+      }
+      return {
+        title: group.title,
+        data: rows
+      };
+    });
+  }, [sortedAnimeList]);
+
+  const renderSectionHeader = ({ section: { title } }) => (
+    <View style={{ marginBottom: 16, marginTop: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+        <View style={styles.dividerLine} />
+        <View style={styles.dividerTextContainer}>
+          <Text style={styles.dividerText}>{title}</Text>
+        </View>
+        <View style={styles.dividerLine} />
+      </View>
+    </View>
+  );
+
+  const renderItem = ({ item: row }) => (
+    <View style={styles.cardsRow}>
+      {row.map(anime => (
+        <AnimeCard
+          key={anime._id || anime.animeId}
+          anime={anime}
+          cardWidth={(width - 48) / 2}
+          activeTab={activeTab}
+          onIncrement={handleIncrementEpisode}
+          onRating={handleRatingChange}
+          onRemove={handleRemove}
+          onStatusPress={(a) => {
+            setSelectedAnimeForStatus(a);
+            setStatusModalVisible(true);
+          }}
+          onCardPress={(a) => {
+            const animeForModal = {
+              ...a,
+              id: a.animeId || a.id || a._id
+            };
+            setSelectedAnimeForDetails(animeForModal);
+            setDetailsModalVisible(true);
+            fetchAnimeDetails(a);
+          }}
+          styles={styles}
+        />
+      ))}
+      {/* Spacer for odd number of items to keep alignment left */}
+      {row.length === 1 && <View style={{ width: (width - 48) / 2 }} />}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
 
@@ -694,65 +823,41 @@ const ListScreen = ({ navigation }) => {
       </View>
 
       {/* Main List */}
-      <ScrollView
-        style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        {loading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#667eea" />
-            <Text style={styles.loadingText}>Loading your list...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={fetchAnimeList}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.listContainer}>
-            {sortedAnimeList.length > 0 ? (
-              <View style={styles.cardsGrid}>
-                {sortedAnimeList.map(anime => (
-                  <AnimeCard
-                    key={anime._id || anime.animeId}
-                    anime={anime}
-                    cardWidth={(width - 48) / 2}
-                    activeTab={activeTab}
-                    onIncrement={handleIncrementEpisode}
-                    onRating={handleRatingChange}
-                    onRemove={handleRemove}
-                    onStatusPress={(a) => {
-                      setSelectedAnimeForStatus(a);
-                      setStatusModalVisible(true);
-                    }}
-                    onCardPress={(a) => {
-                      // Normalize ID for shared AnimeModal
-                      const animeForModal = {
-                        ...a,
-                        id: a.animeId || a.id || a._id
-                      };
-                      setSelectedAnimeForDetails(animeForModal);
-                      setDetailsModalVisible(true);
-                      fetchAnimeDetails(a);
-                    }}
-                    navigation={navigation}
-                    styles={styles}
-                  />
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="folder-open-outline" size={50} color="#666" />
-                <Text style={styles.emptyTitle}>No anime found</Text>
-                <Text style={styles.emptySub}>Start adding to your {activeTab} list!</Text>
-              </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
+      {loading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#667eea" />
+          <Text style={styles.loadingText}>Loading your list...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={fetchAnimeList}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <SectionList
+          style={styles.content}
+          sections={sections}
+          keyExtractor={(item, index) => item[0]._id || item[0].animeId || index.toString()}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 15 }}
+          stickySectionHeadersEnabled={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="folder-open-outline" size={50} color="#666" />
+              <Text style={styles.emptyTitle}>No anime found</Text>
+              <Text style={styles.emptySub}>Start adding to your {activeTab} list!</Text>
+            </View>
+          }
+          initialNumToRender={6}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+        />
+      )}
 
       <StatusModal
         visible={statusModalVisible}
@@ -1220,7 +1325,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF5533',
     alignItems: 'center'
   },
-  confirmText: { color: '#fff', fontWeight: 'bold' }
+  confirmText: { color: '#fff', fontWeight: 'bold' },
+
+  // Divider Styles for List Segregation
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  dividerTextContainer: {
+    paddingHorizontal: 16,
+  },
+  dividerText: {
+    color: '#FF775C',
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  cardsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15
+  }
 });
 
 export default ListScreen;
