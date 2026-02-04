@@ -15,6 +15,8 @@ import {
   StatusBar,
   SafeAreaView,
   PanResponder,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -23,6 +25,7 @@ import BottomNavBar from '../components/BottomNav';
 import AnimeModal from '../components/AnimeModal';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config/api';
+import ProfilePill from '../components/ProfilePill';
 
 const { width, height } = Dimensions.get('window');
 const isMobile = width <= 768;
@@ -682,14 +685,7 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.getStartedButtonText}>Get Started</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={logout}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.logoutText}>Logout</Text>
-            <Ionicons name="log-out-outline" size={20} color="#fff" />
-          </TouchableOpacity>
+          <ProfilePill user={user} logout={logout} navigation={navigation} />
         )}
       </View>
 
