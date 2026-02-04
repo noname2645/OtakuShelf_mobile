@@ -108,41 +108,61 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      // Try to verify token with backend
       const response = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 5000
+        timeout: 8000 // Increased timeout for slow backends
       });
 
       if (response.data.user) {
         const userData = response.data.user;
-        const profileData = await fetchFreshProfile(userData._id);
-
         setUser(userData);
-        setProfile(profileData);
         await storeMinimalUser(userData);
+
+        // Fetch profile in background - don't block on it
+        fetchFreshProfile(userData._id)
+          .then(setProfile)
+          .catch(() => console.log('Profile fetch failed, continuing anyway'));
       } else {
         await clearStorage();
       }
     } catch (error) {
-      console.error('Auth check failed:', error.message);
+      console.log('Auth check error:', error.message);
 
-      if (error.code === 'ECONNABORTED' || error.code === 'NETWORK_ERROR') {
+      // Handle network errors gracefully
+      if (error.code === 'ECONNABORTED' ||
+        error.code === 'ERR_NETWORK' ||
+        error.message?.includes('Network Error') ||
+        error.message?.includes('timeout')) {
+        // Network error - use cached data
         const storedUser = await loadFromStorage();
         if (storedUser) {
           setUser(storedUser);
-          console.log('Using cached data (offline mode)');
+          console.log('Network unavailable - using cached user data');
+        } else {
+          console.log('No cached user data available');
         }
       } else if (error.response?.status === 401) {
+        // Unauthorized - clear everything
         await clearStorage();
+      } else {
+        // Other errors - try to use cached data
+        const storedUser = await loadFromStorage();
+        if (storedUser) {
+          setUser(storedUser);
+          console.log('Error during auth check - using cached data');
+        }
       }
     } finally {
       setLoading(false);
     }
   }, [API, fetchFreshProfile, storeMinimalUser, clearStorage, loadFromStorage]);
 
+  // Run auth check only once on mount
   useEffect(() => {
     checkAuthStatus();
-  }, [checkAuthStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once
 
   const login = useCallback(async (userData, authToken) => {
     try {

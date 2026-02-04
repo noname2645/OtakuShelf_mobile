@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AnimeModal from '../components/AnimeModal';
 import BottomNav from '../components/BottomNav';
 import BeautifulLoader from '../components/BeautifulLoader';
+import AnimatedAnimeCard from '../components/AnimatedAnimeCard';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -373,34 +374,14 @@ const SearchScreen = ({ navigation }) => {
 
   const renderAnimeCard = ({ item, index }) => {
     return (
-      <View>
-        <TouchableOpacity
-          style={styles.animeCard}
-          onPress={() => {
-            setSelectedAnime(item);
-            setModalVisible(true);
-          }}
-          activeOpacity={0.8}
-        >
-          <View style={styles.cardInner}>
-            <Image
-              source={{ uri: item.coverImage?.extraLarge || item.coverImage?.large || 'https://via.placeholder.com/300x450' }}
-              style={styles.cardImage}
-              resizeMode="cover"
-            />
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
-              locations={[0, 0.3, 0.7, 1]}
-              style={styles.gradientOverlay}
-            />
-            <View style={styles.titleOverlay}>
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
+      <AnimatedAnimeCard
+        item={item}
+        index={index}
+        onPress={(anime) => {
+          setSelectedAnime(anime);
+          setModalVisible(true);
+        }}
+      />
     );
   };
 
@@ -654,11 +635,14 @@ const SearchScreen = ({ navigation }) => {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchText || filters.genres.length > 0
-                  ? 'No results found'
-                  : 'Start searching for anime'}
-              </Text>
+              {searchText || hasActiveFilters ? (
+                <Text style={styles.emptyText}>No results found</Text>
+              ) : (
+                <>
+                  <BeautifulLoader />
+                  <Text style={styles.emptyText}>Gaining Power...</Text>
+                </>
+              )}
             </View>
           }
           onEndReached={loadMore}
@@ -950,6 +934,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#999',
     fontSize: 16,
+    marginTop: 20,
   },
 });
 

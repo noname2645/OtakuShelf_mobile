@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
@@ -182,6 +183,16 @@ const LoginScreen = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Back Button - Fixed Position */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.navigate('Home')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="arrow-back" size={24} color="#fff" />
+        <Text style={styles.backButtonText}>Home</Text>
+      </TouchableOpacity>
     </LinearGradient>
   );
 };
@@ -355,6 +366,26 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#ff5900',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backButtonText: {
+    color: '#fff',
+    marginLeft: 5,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

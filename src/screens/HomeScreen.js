@@ -428,7 +428,8 @@ const SectionDivider = React.memo(({ text }) => (
 
 // ========== MAIN HOMESCREEN COMPONENT ==========
 const HomeScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  console.log('HomeScreen user state:', user ? 'Logged in' : 'Guest');
   // State
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -482,18 +483,18 @@ const HomeScreen = ({ navigation }) => {
   }, []);
 
   // Fetch anime sections from API
-  const fetchAnimeSections = useCallback(async () => {
+  const fetchAnimeSections = useCallback(async (isRefresh = false) => {
     try {
       setNetworkError(null);
 
       const url = `${API_BASE_URL}/api/anime/anime-sections`;
-      const maxRetries = 3;
-      const retryDelayMs = 1500;
+      const maxRetries = 2;
+      const retryDelayMs = 1000;
 
       let response = null;
       for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
         try {
-          response = await axios.get(url, { timeout: 15000 });
+          response = await axios.get(url, { timeout: 10000 });
           break;
         } catch (err) {
           if (attempt === maxRetries) throw err;
@@ -510,8 +511,11 @@ const HomeScreen = ({ navigation }) => {
       });
 
     } catch (error) {
-      console.error('Error fetching anime sections:', error);
-      setNetworkError('Unable to reach the server. Showing offline data.');
+      console.log('Network error:', error.message);
+      // Only show error banner if user explicitly refreshed
+      if (isRefresh) {
+        setNetworkError('Unable to reach the server. Showing offline data.');
+      }
 
       // Fallback mock data if API fails
       const mockAnime = (count, prefix) =>
@@ -552,7 +556,7 @@ const HomeScreen = ({ navigation }) => {
   // Refresh function
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchAnimeSections();
+    fetchAnimeSections(true); // Pass true to indicate this is a manual refresh
   }, [fetchAnimeSections]);
 
   // Search function
@@ -669,12 +673,22 @@ const HomeScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>OtakuShelf</Text>
-        {!user && (
+        {!user ? (
           <TouchableOpacity
             style={styles.getStartedButton}
             onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.8}
           >
             <Text style={styles.getStartedButtonText}>Get Started</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={logout}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.logoutText}>Logout</Text>
+            <Ionicons name="log-out-outline" size={20} color="#fff" />
           </TouchableOpacity>
         )}
       </View>
@@ -850,9 +864,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 0,
-    paddingBottom: 0,
-    paddingHorizontal: 16,
+    paddingTop: 45, // Moved margin from children to padding here
+    paddingBottom: 10,
+    paddingHorizontal: 20,
     backgroundColor: 'transparent',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -863,23 +877,51 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
-    marginTop: 45,
     fontFamily: FONT_REGULAR,
+    // marginTop removed
   },
+
 
   getStartedButton: {
     backgroundColor: '#ff5900',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    // marginTop removed
+    shadowColor: '#ff5900',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    marginTop: 45,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  logoutText: {
+    color: '#fff',
+    marginRight: 8,
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   getStartedButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.5,
   },
+
 
   // Scroll View
   scrollView: {
