@@ -18,6 +18,15 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
+    // Helper function to get title string
+    const getTitle = (title) => {
+        if (typeof title === 'string') return title;
+        if (title?.english) return title.english;
+        if (title?.romaji) return title.romaji;
+        if (title?.native) return title.native;
+        return 'Untitled';
+    };
+
     useEffect(() => {
         const delay = Math.min(index * 50, 300); // Stagger animation
         Animated.parallel([
@@ -72,7 +81,7 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
                     />
                     <View style={styles.titleOverlay}>
                         <Text style={styles.cardTitle} numberOfLines={2}>
-                            {item.title}
+                            {getTitle(item.title)}
                         </Text>
                     </View>
                 </View>
@@ -83,10 +92,9 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
 
 const styles = StyleSheet.create({
     animeCard: {
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
-        marginRight: 20,
-        marginBottom: 20,
+        width: '100%',
+        aspectRatio: 0.69, // Maintains the card proportions (width/height ratio)
+        marginBottom: 10,
         borderRadius: 20,
         overflow: 'hidden',
         backgroundColor: 'transparent',
