@@ -15,9 +15,11 @@ import axios from 'axios';
 
 const GoogleAuthScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
-    const [initialLoad, setInitialLoad] = useState(true); // Track initial load
-    const [processingAuth, setProcessingAuth] = useState(false); // Track token processing
+    const [initialLoad, setInitialLoad] = useState(true);
+    const [processingAuth, setProcessingAuth] = useState(false);
     const [error, setError] = useState(null);
+    const [visitedGoogle, setVisitedGoogle] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
     const webViewRef = useRef(null);
     const { login, API } = useAuth();
     const [currentUrl, setCurrentUrl] = useState('');
@@ -29,13 +31,27 @@ const GoogleAuthScreen = ({ navigation }) => {
 
     const handleNavigationStateChange = async (navState) => {
         const { url } = navState;
-
         console.log('📍 Navigation URL:', url);
         setCurrentUrl(url);
+
+        // Logic to detect when we are done with Google and returning to app/backend
+        const isGoogle = url.includes('google.com') || url.includes('accounts.google');
+
+        if (isGoogle && !visitedGoogle) {
+            console.log('🔍 Visited Google domain');
+            setVisitedGoogle(true);
+        }
+
+        // If we visited Google and are now navigating to a non-Google URL, we are likely completing the flow
+        if (visitedGoogle && !isGoogle && !isRedirecting) {
+            console.log('🔙 Redirecting back to app/backend - showing overlay');
+            setIsRedirecting(true);
+        }
 
         // Check if we got redirected back with a token
         if (url.includes('token=')) {
             console.log('✅ Token detected in URL');
+            setIsRedirecting(true); // Ensure overlay is on
 
             try {
                 // Extract token from URL
@@ -43,9 +59,8 @@ const GoogleAuthScreen = ({ navigation }) => {
 
                 if (tokenMatch && tokenMatch[1]) {
                     const token = decodeURIComponent(tokenMatch[1]);
-                    console.log('🔑 Token extracted:', token.substring(0, 30) + '...');
+                    console.log('🔑 Token extracted');
 
-                    // Show processing state (not the full loading overlay)
                     setProcessingAuth(true);
 
                     // Verify token and get user data
@@ -55,15 +70,10 @@ const GoogleAuthScreen = ({ navigation }) => {
                         timeout: 10000
                     });
 
-                    console.log('👤 User data received:', response.data.user?.email);
-
                     if (response.data.user) {
-                        // Login with user data and token
                         console.log('💾 Storing user data and token...');
                         await login(response.data.user, token);
-
                         console.log('✅ Login successful, navigating to Home');
-                        // Navigate to home
                         navigation.replace('Home');
                     } else {
                         throw new Error('Invalid user data received');
@@ -71,11 +81,10 @@ const GoogleAuthScreen = ({ navigation }) => {
                 }
             } catch (err) {
                 console.error('❌ Google auth error:', err);
-                console.error('Error details:', err.response?.data || err.message);
-
                 setError('Authentication failed. Please try again.');
                 setLoading(false);
                 setProcessingAuth(false);
+                setIsRedirecting(false);
 
                 Alert.alert(
                     'Authentication Failed',
@@ -87,6 +96,8 @@ const GoogleAuthScreen = ({ navigation }) => {
                                 setError(null);
                                 setLoading(true);
                                 setInitialLoad(true);
+                                setVisitedGoogle(false);
+                                setIsRedirecting(false);
                                 webViewRef.current?.reload();
                             }
                         },
@@ -108,6 +119,7 @@ const GoogleAuthScreen = ({ navigation }) => {
             console.error('❌ Error in URL:', errorMessage);
             setError(errorMessage);
             setLoading(false);
+            setIsRedirecting(false);
 
             Alert.alert(
                 'Authentication Error',
@@ -118,6 +130,8 @@ const GoogleAuthScreen = ({ navigation }) => {
                         onPress: () => {
                             setError(null);
                             setLoading(true);
+                            setVisitedGoogle(false);
+                            setIsRedirecting(false);
                             webViewRef.current?.reload();
                         }
                     },
@@ -134,27 +148,48 @@ const GoogleAuthScreen = ({ navigation }) => {
     const handleError = (syntheticEvent) => {
         const { nativeEvent } = syntheticEvent;
         console.error('❌ WebView error:', nativeEvent);
-        setError('Failed to load authentication page');
-        setLoading(false);
+        // Only show error screen if we are not already redirecting/processing
+        // Sometimes "errors" occur during redirects (like nsf_urls) which are actually fine
+        if (!isRedirecting && !processingAuth) {
+            // setError('Failed to load authentication page');
+            // setLoading(false);
+            console.log('WebView reported error but continuing: ', nativeEvent.description);
+        }
     };
 
     const handleLoadStart = () => {
-        console.log('⏳ WebView loading started');
-        // Only show loading overlay on initial load, not during OAuth flow
+        // Only show loading overlay on initial load or if we are redirecting
         if (initialLoad) {
             setLoading(true);
         }
     };
 
     const handleLoadEnd = () => {
-        console.log('✅ WebView loading finished');
         setLoading(false);
-        setInitialLoad(false); // After first load, don't show overlay anymore
+        setInitialLoad(false);
     };
 
-    const handleMessage = (event) => {
-        console.log('📨 Message from WebView:', event.nativeEvent.data);
+    // Determine which loading text to show
+    const getLoadingText = () => {
+        if (processingAuth) return "Finalizing Sign-In...";
+        if (isRedirecting) return "Completing Sign-In...";
+        return "Loading Google Sign-In...";
     };
+
+    // Determine if we should show the overlay
+    // We want to HIDE the overlay ONLY when:
+    // 1. We are NOT loading
+    // 2. We are on a Google page (login flow)
+    // 3. We are NOT processing the final auth token
+    const isGoogleDomain = currentUrl.includes('google.com') || currentUrl.includes('accounts.google') || currentUrl.includes('gstatic.com');
+    // Special case for initial load (API URL) to avoid flash before redirect to Google
+    const isInitialApiCall = currentUrl.includes('/auth/google') && !isGoogleDomain;
+
+    const shouldShowOverlay =
+        loading ||
+        processingAuth ||
+        isRedirecting ||
+        (!isGoogleDomain && !isInitialApiCall && currentUrl !== ''); // Show overlay if we are on some other redirect page (like the react app)
 
     return (
         <View style={styles.container}>
@@ -165,17 +200,14 @@ const GoogleAuthScreen = ({ navigation }) => {
             >
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => {
-                        console.log('🔙 Back button pressed');
-                        navigation.goBack();
-                    }}
+                    onPress={() => navigation.goBack()}
                 >
                     <Text style={styles.backButtonText}>← Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Sign in with Google</Text>
                 {__DEV__ && (
                     <Text style={styles.debugText} numberOfLines={1}>
-                        {currentUrl || 'Waiting for URL...'}
+                        {currentUrl.split('?')[0] || 'Waiting for URL...'}
                     </Text>
                 )}
             </LinearGradient>
@@ -189,48 +221,27 @@ const GoogleAuthScreen = ({ navigation }) => {
                     onLoadStart={handleLoadStart}
                     onLoadEnd={handleLoadEnd}
                     onError={handleError}
-                    onMessage={handleMessage}
                     style={styles.webview}
-                    startInLoadingState={true}
+                    startInLoadingState={false} // We handle our own loading overlay
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
                     sharedCookiesEnabled={true}
                     thirdPartyCookiesEnabled={true}
-                    // Use a modern Chrome user agent
-                    userAgent="Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36"
-                    // Allow mixed content
                     mixedContentMode="always"
-                    // Enable debugging
-                    onShouldStartLoadWithRequest={(request) => {
-                        console.log('🌐 Should load:', request.url);
-                        return true;
-                    }}
+                    userAgent="Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Mobile Safari/537.36"
                 />
             )}
 
-            {/* Loading Indicator - Only on initial load */}
-            {loading && initialLoad && !error && (
-                <View style={styles.loadingContainer}>
+            {/* Unified Full Screen Loading/Processing Overlay */}
+            {shouldShowOverlay && !error && (
+                <View style={[styles.loadingContainer, { zIndex: 999 }]}>
                     <LinearGradient
-                        colors={['rgba(10, 15, 30, 0.95)', 'rgba(22, 27, 46, 0.95)']}
+                        colors={['#0a0f1e', '#161b2e']}
                         style={styles.loadingGradient}
                     >
                         <ActivityIndicator size="large" color="#ff5900" />
-                        <Text style={styles.loadingText}>Loading Google Sign-In...</Text>
-                        <Text style={styles.loadingSubtext}>Please wait</Text>
-                    </LinearGradient>
-                </View>
-            )}
-
-            {/* Processing Auth Indicator - Small, non-blocking */}
-            {processingAuth && !error && (
-                <View style={styles.processingContainer}>
-                    <LinearGradient
-                        colors={['#ff5900', '#ff7a33']}
-                        style={styles.processingGradient}
-                    >
-                        <ActivityIndicator size="small" color="#fff" />
-                        <Text style={styles.processingText}>Completing sign-in...</Text>
+                        <Text style={styles.loadingText}>{getLoadingText()}</Text>
+                        <Text style={styles.loadingSubtext}>Please wait a moment</Text>
                     </LinearGradient>
                 </View>
             )}
@@ -248,9 +259,11 @@ const GoogleAuthScreen = ({ navigation }) => {
                         <TouchableOpacity
                             style={styles.retryButton}
                             onPress={() => {
-                                console.log('🔄 Retry button pressed');
                                 setError(null);
                                 setLoading(true);
+                                setInitialLoad(true);
+                                setVisitedGoogle(false);
+                                setIsRedirecting(false);
                                 webViewRef.current?.reload();
                             }}
                         >
@@ -264,21 +277,10 @@ const GoogleAuthScreen = ({ navigation }) => {
 
                         <TouchableOpacity
                             style={styles.cancelButton}
-                            onPress={() => {
-                                console.log('❌ Cancel button pressed');
-                                navigation.goBack();
-                            }}
+                            onPress={() => navigation.goBack()}
                         >
                             <Text style={styles.cancelButtonText}>Cancel</Text>
                         </TouchableOpacity>
-
-                        {__DEV__ && (
-                            <View style={styles.debugContainer}>
-                                <Text style={styles.debugTitle}>Debug Info:</Text>
-                                <Text style={styles.debugInfo}>API: {API}</Text>
-                                <Text style={styles.debugInfo}>Error: {error}</Text>
-                            </View>
-                        )}
                     </LinearGradient>
                 </View>
             )}

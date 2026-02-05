@@ -64,6 +64,8 @@ const SearchScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalResults, setTotalResults] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -204,15 +206,20 @@ const SearchScreen = ({ navigation }) => {
   `;
 
   const performSearch = async (page = 1, isNewSearch = false) => {
+    // Prevent duplicate requests
+    if (!isNewSearch && (searchLoading || isSearching)) return;
+
     try {
       if (isNewSearch) {
         setIsSearching(true);
         setSearchResults([]);
+      } else {
+        setSearchLoading(true);
       }
 
       const variables = {
         page,
-        perPage: 20
+        perPage: 50
       };
 
       if (searchText.trim()) {
@@ -287,6 +294,7 @@ const SearchScreen = ({ navigation }) => {
       }));
 
       setHasMore(responseData.pageInfo.hasNextPage);
+      setTotalResults(responseData.pageInfo.total);
 
       if (isNewSearch) {
         setSearchResults(results);
@@ -299,6 +307,7 @@ const SearchScreen = ({ navigation }) => {
       console.error('Search error:', error);
     } finally {
       setIsSearching(false);
+      setSearchLoading(false);
     }
   };
 
@@ -332,11 +341,14 @@ const SearchScreen = ({ navigation }) => {
       setSearchResults([]);
       return;
     }
+    // Only trigger if we have something to search for or active filters
+    // and if we aren't already searching to avoid race conditions
+    // performSearch handle concurrency internally now
     performSearch(1, true);
   }, [filters, hasActiveFilters]);
 
   const loadMore = () => {
-    if (!isSearching && hasMore) {
+    if (!isSearching && !searchLoading && hasMore) {
       performSearch(currentPage + 1, false);
     }
   };
@@ -633,6 +645,19 @@ const SearchScreen = ({ navigation }) => {
           keyExtractor={(item, index) => `${item.id}-${index}`}
           numColumns={2}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
+          ListHeaderComponent={
+            <View>
+              {searchResults.length > 0 && (
+                <Text style={styles.resultsCountText}>
+                  Found {totalResults.toLocaleString()} titles
+                </Text>
+              )}
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               {searchText || hasActiveFilters ? (
@@ -646,9 +671,10 @@ const SearchScreen = ({ navigation }) => {
             </View>
           }
           onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={2}
+          columnWrapperStyle={{ justifyContent: 'space-between' }}
           ListFooterComponent={
-            isSearching && searchResults.length > 0 ? (
+            searchLoading ? (
               <View style={{ alignItems: 'center', marginVertical: 20 }}>
                 <View style={{ transform: [{ scale: 0.5 }] }}>
                   <BeautifulLoader />
@@ -935,6 +961,13 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 16,
     marginTop: 20,
+  },
+  resultsCountText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    marginBottom: 15,
+    marginLeft: 5,
+    fontWeight: '600',
   },
 });
 

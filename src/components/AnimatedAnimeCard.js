@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -46,17 +46,36 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
         ]).start();
     }, []);
 
+    const handlePressIn = useCallback(() => {
+        Animated.spring(scaleAnim, {
+            toValue: 0.95,
+            useNativeDriver: true,
+        }).start();
+    }, []);
+
+    const handlePressOut = useCallback(() => {
+        Animated.spring(scaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+        }).start();
+    }, []);
+
     return (
         <Animated.View
             style={{
                 opacity: fadeAnim,
                 transform: [{ scale: scaleAnim }],
+                width: CARD_WIDTH,
+                height: CARD_HEIGHT,
+                marginBottom: 25,
             }}
         >
             <TouchableOpacity
                 style={styles.animeCard}
                 onPress={() => onPress(item)}
-                activeOpacity={0.8}
+                activeOpacity={1}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
             >
                 <View style={styles.cardInner}>
                     <Image
@@ -93,8 +112,7 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
 const styles = StyleSheet.create({
     animeCard: {
         width: '100%',
-        aspectRatio: 0.69, // Maintains the card proportions (width/height ratio)
-        marginBottom: 10,
+        height: '100%',
         borderRadius: 20,
         overflow: 'hidden',
         backgroundColor: 'transparent',

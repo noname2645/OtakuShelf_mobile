@@ -220,8 +220,10 @@ const PieChart = ({ data }) => {
   );
 };
 
+
+
 const ProfileScreen = ({ navigation }) => {
-  const { user, updateProfile, API, logout } = useAuth();
+  const { user, updateProfile, API, logout, checkAuthStatus } = useAuth();
 
   // State
   const [profileData, setProfileData] = useState(null);
@@ -333,7 +335,7 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => { loadProfileData(); }, [user]);
   const onRefresh = useCallback(() => { setRefreshing(true); loadProfileData(); }, []);
 
-  const handleCoverUpload = async () => { /* ... simplified for brevity in thought, inserted fully in tool ... */
+  const handleCoverUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [16, 9], quality: 0.8 });
       if (!result.canceled && result.assets[0].uri) {
@@ -352,7 +354,14 @@ const ProfileScreen = ({ navigation }) => {
         const formData = new FormData();
         formData.append('photo', { uri: result.assets[0].uri, name: 'photo.jpg', type: 'image/jpeg' });
         const response = await axios.post(`${API}/api/profile/${user._id}/upload-photo`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-        if (response.data.photo) { if (updateProfile) updateProfile({ photo: response.data.photo }); loadProfileData(); Alert.alert("Success", "Profile photo updated!"); }
+
+        if (response.data.photo) {
+          // Sync global auth state
+          await checkAuthStatus();
+          // Reload local profile data (though useEffect on user change might handle this)
+          loadProfileData();
+          Alert.alert("Success", "Profile photo updated!");
+        }
       }
     } catch (e) { Alert.alert("Error", "Failed to upload photo"); }
   };
