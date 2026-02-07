@@ -157,13 +157,13 @@ const cardStyles = StyleSheet.create({
 });
 
 const PieChart = ({ data }) => {
-  const radius = 90;
-  const strokeWidth = 30;
+  const radius = 95;
+  const strokeWidth = 55;
   const center = radius + strokeWidth;
-  const total = data.reduce((acc, item) => acc + item.value, 0);
+  const totalValue = data.reduce((acc, item) => acc + item.value, 0);
   let currentAngle = 0;
 
-  if (data.length === 0 || total === 0) {
+  if (data.length === 0 || totalValue === 0) {
     return (
       <View style={styles.emptyChart}>
         <Ionicons name="stats-chart" size={48} color="rgba(255,255,255,0.2)" />
@@ -195,21 +195,33 @@ const PieChart = ({ data }) => {
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={center * 2} height={center * 2}>
         <G rotation={0} origin={`${center}, ${center}`}>
+          {/* Background Track */}
           <Circle cx={center} cy={center} r={radius} stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} fill="none" />
+
           {data.map((item, index) => {
             if (item.value <= 0) return null;
-            const angle = (item.value / 100) * 360;
+
+            // Normalize the angle based on the TOTAL sum of values, not 100%
+            // because genre percentages can sum to > 100% (multi-genre anime)
+            const angle = (item.value / totalValue) * 360;
             const startAngle = currentAngle;
             const endAngle = currentAngle + angle;
             currentAngle += angle;
 
-            if (Math.abs(angle - 360) < 0.1) {
+            // Handle full circle case
+            if (angle >= 360) {
               return <Circle key={index} cx={center} cy={center} r={radius} stroke={item.color} strokeWidth={strokeWidth} fill="none" />
             }
 
-            const path = describeArc(center, center, radius, startAngle, endAngle >= 359.9 ? 359.9 : endAngle);
+            const path = describeArc(center, center, radius, startAngle, endAngle);
             return (
-              <Path key={index} d={path} stroke={item.color} strokeWidth={strokeWidth} fill="none" strokeLinecap="butt" />
+              <Path
+                key={index}
+                d={path}
+                stroke={item.color}
+                strokeWidth={strokeWidth}
+                fill="none"
+              />
             );
           })}
         </G>
@@ -490,7 +502,7 @@ const ProfileScreen = ({ navigation }) => {
               ))}
             </View>
           </View>
-          <View style={{ height: 100 }} />
+          <View style={{ height: 130 }} />
         </View>
       </ScrollView>
 
@@ -558,7 +570,7 @@ const styles = StyleSheet.create({
   legendItemInactive: { opacity: 0.5 },
   legendColor: { width: 12, height: 12, borderRadius: 4, marginRight: 8 },
   legendInfo: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
-  legendText: { color: '#fff', fontSize: 12, maxWidth: 80 },
+  legendText: { color: '#fff', fontSize: 12, flex: 1, marginRight: 4 },
   legendPercent: { color: '#ff6b6b', fontSize: 12, fontWeight: 'bold' },
   emptyChart: { alignItems: 'center', justifyContent: 'center', height: 200 },
   emptyChartText: { color: 'rgba(255,255,255,0.4)', marginTop: 10 },

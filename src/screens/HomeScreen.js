@@ -26,6 +26,7 @@ import BottomNavBar from '../components/BottomNav';
 import AnimeModal from '../components/AnimeModal';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE_URL } from '../config/api';
+import { fetchHeroTrailers } from '../api/anilist';
 import ProfilePill from '../components/ProfilePill';
 
 const { width, height } = Dimensions.get('window');
@@ -422,6 +423,7 @@ const HomeScreen = ({ navigation }) => {
     mostWatched: [],
     topMovies: [],
   });
+  const [heroAnime, setHeroAnime] = useState([]);
   const [selectedAnime, setSelectedAnime] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -494,6 +496,23 @@ const HomeScreen = ({ navigation }) => {
         topMovies: (data.topMovies || []).map(normalizeAnime).filter(Boolean).slice(0, 12),
       });
 
+      // Special fetch for Hero Trailers using direct AniList strategy (client-side) to match web
+      try {
+        const heroData = await fetchHeroTrailers(isRefresh);
+
+        if (Array.isArray(heroData) && heroData.length > 0) {
+          setHeroAnime(heroData.map(normalizeAnime).filter(Boolean).slice(0, 10));
+        } else {
+          console.log('No hero data returned from strategy, falling back to top airing');
+          // Fallback to top airing if no hero data
+          setHeroAnime((data.topAiring || []).map(normalizeAnime).filter(Boolean).slice(0, 10));
+        }
+      } catch (heroError) {
+        console.log('Hero trailer strategy error:', heroError.message);
+        // Fallback to top airing on error
+        setHeroAnime((data.topAiring || []).map(normalizeAnime).filter(Boolean).slice(0, 10));
+      }
+
     } catch (error) {
       console.log('Network error:', error.message);
       // Only show error banner if user explicitly refreshed
@@ -521,11 +540,17 @@ const HomeScreen = ({ navigation }) => {
           trailer: Math.random() > 0.5 ? { id: 'dQw4w9WgXcQ' } : null,
         })).map(normalizeAnime);
 
+      const mockTopAiring = mockAnime(12, 'Top Airing');
+
       setSections({
-        topAiring: mockAnime(12, 'Top Airing'),
+        topAiring: mockTopAiring,
         mostWatched: mockAnime(12, 'Most Watched'),
         topMovies: mockAnime(12, 'Top Movies'),
       });
+
+      // Also set mock data for hero if everything fails
+      setHeroAnime(mockTopAiring.slice(0, 10));
+
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -803,7 +828,7 @@ const HomeScreen = ({ navigation }) => {
               scrollRef.current.scrollTo({ y: HERO_HEIGHT - 40, animated: true });
             }
           }}
-          featuredAnime={sections.topAiring.slice(0, 10)}
+          featuredAnime={heroAnime}
         />
       </Animated.View>
 
