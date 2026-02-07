@@ -21,6 +21,19 @@ export const AuthProvider = ({ children }) => {
   // API base URL from centralized config
   const API = API_BASE_URL;
 
+  const normalizeUser = useCallback((userData) => {
+    if (!userData) return null;
+    const normUser = { ...userData };
+
+    // Fix photo URL if relative
+    if (normUser.photo && !normUser.photo.startsWith('http') && !normUser.photo.startsWith('data:')) {
+      const separator = API.endsWith('/') ? '' : '/';
+      const path = normUser.photo.startsWith('/') ? normUser.photo.substring(1) : normUser.photo;
+      normUser.photo = `${API}${separator}${path}`;
+    }
+    return normUser;
+  }, [API]);
+
 
   const storeMinimalUser = useCallback(async (userData) => {
     try {
@@ -99,7 +112,7 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         const storedUser = await loadFromStorage();
         if (storedUser) {
-          setUser(storedUser);
+          setUser(normalizeUser(storedUser));
           fetchFreshProfile(storedUser.id)
             .then(setProfile)
             .catch(() => console.log('Offline mode: using stored user only'));
@@ -115,7 +128,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.data.user) {
-        const userData = response.data.user;
+        const userData = normalizeUser(response.data.user);
         setUser(userData);
         await storeMinimalUser(userData);
 
@@ -137,7 +150,7 @@ export const AuthProvider = ({ children }) => {
         // Network error - use cached data
         const storedUser = await loadFromStorage();
         if (storedUser) {
-          setUser(storedUser);
+          setUser(normalizeUser(storedUser));
           console.log('Network unavailable - using cached user data');
         } else {
           console.log('No cached user data available');
@@ -149,7 +162,7 @@ export const AuthProvider = ({ children }) => {
         // Other errors - try to use cached data
         const storedUser = await loadFromStorage();
         if (storedUser) {
-          setUser(storedUser);
+          setUser(normalizeUser(storedUser));
           console.log('Error during auth check - using cached data');
         }
       }
@@ -175,11 +188,12 @@ export const AuthProvider = ({ children }) => {
       const profileData = await fetchFreshProfile(userData._id || userData.id);
 
       // Update state
-      setUser(userData);
+      const normalizedUser = normalizeUser(userData);
+      setUser(normalizedUser);
       setProfile(profileData);
 
       // Store minimal user data for offline access
-      await storeMinimalUser(userData);
+      await storeMinimalUser(normalizedUser);
 
       return { success: true };
     } catch (error) {
@@ -229,9 +243,10 @@ export const AuthProvider = ({ children }) => {
           ...currentUser,
           ...response.data.user
         };
+        const normalizedUser = normalizeUser(updatedUser);
 
-        setUser(updatedUser);
-        await storeMinimalUser(updatedUser);
+        setUser(normalizedUser);
+        await storeMinimalUser(normalizedUser);
 
         const freshProfile = await fetchFreshProfile(userId);
         if (freshProfile) {

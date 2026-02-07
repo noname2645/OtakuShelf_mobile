@@ -14,7 +14,7 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.45;
 
-const AnimatedAnimeCard = ({ item, index, onPress }) => {
+const AnimatedAnimeCard = ({ item, index, onPress, cardStyle }) => {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
@@ -34,14 +34,14 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
                 toValue: 1,
                 duration: 400,
                 delay,
-                useNativeDriver: true,
+                useNativeDriver: true, // Use native driver for opacity
             }),
             Animated.spring(scaleAnim, {
                 toValue: 1,
                 delay,
                 tension: 50,
                 friction: 7,
-                useNativeDriver: true,
+                useNativeDriver: true, // Use native driver for scale
             }),
         ]).start();
     }, []);
@@ -62,13 +62,13 @@ const AnimatedAnimeCard = ({ item, index, onPress }) => {
 
     return (
         <Animated.View
-            style={{
+            style={[{
                 opacity: fadeAnim,
                 transform: [{ scale: scaleAnim }],
                 width: CARD_WIDTH,
                 height: CARD_HEIGHT,
                 marginBottom: 25,
-            }}
+            }, cardStyle]}
         >
             <TouchableOpacity
                 style={styles.animeCard}
