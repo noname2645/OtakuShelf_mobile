@@ -37,10 +37,10 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
       title = anime.title.english || anime.title.romaji || anime.title.native || "Untitled";
     }
 
-    let image = anime.coverImage?.extraLarge || 
-                anime.coverImage?.large || 
-                anime.coverImage?.medium ||
-                'https://via.placeholder.com/300x450';
+    let image = anime.coverImage?.extraLarge ||
+      anime.coverImage?.large ||
+      anime.coverImage?.medium ||
+      'https://via.placeholder.com/300x450';
 
     let genres = [];
     if (Array.isArray(anime.genres)) {
@@ -474,6 +474,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+    fontFamily: 'JetbrainsMono'
   },
   typeBadgeDot: {
     width: 6,
@@ -487,6 +488,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.2,
+    fontFamily: 'JetbrainsMono',
   },
   content: {
     flex: 1,
@@ -498,9 +500,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+    letterSpacing: 1,
+    color: '#4facfe',
     marginBottom: 15,
+    fontFamily: 'OutfitRegular',
   },
   statsRow: {
     flexDirection: 'row',
@@ -557,20 +560,25 @@ const styles = StyleSheet.create({
   },
   synopsis: {
     color: '#ccc',
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 24,
     marginBottom: 20,
+    fontFamily: 'JosefinSans',
+    color: '#01d05eff'
   },
   genresContainer: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    paddingVertical: 10,
   },
   genresLabel: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 10,
+    marginRight: 10,
+    marginTop: 6,
   },
   genresRow: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
@@ -590,8 +598,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   infoLabel: {
     color: '#fff',

@@ -16,6 +16,7 @@ import {
   SectionList
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
@@ -103,7 +104,9 @@ const AnimeCard = React.memo(({ anime, cardWidth, activeTab, onIncrement, onRati
           locations={[0, 0.4, 1]}
           style={styles.cardOverlay}
         >
-          <Text style={styles.cardTitle} numberOfLines={2}>{anime.title}</Text>
+          <BlurView intensity={20} tint="dark" style={styles.titleBlurWrapper}>
+            <Text style={styles.cardTitle} numberOfLines={2}>{anime.title}</Text>
+          </BlurView>
 
           <View style={styles.episodeInfo}>
             <View style={styles.dot} />
@@ -1106,12 +1109,26 @@ const styles = StyleSheet.create({
     padding: 15,
     zIndex: 5
   },
-  cardTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+  titleBlurWrapper: {
+    borderRadius: 8,
+    overflow: 'hidden',
     marginBottom: 5,
-    lineHeight: 18
+    backgroundColor: 'rgba(0,0,0,0.3)', // Fallback / extra dim
+    width: '110%',
+    alignSelf: 'center',
+  },
+  cardTitle: {
+    color: '#ff6a00',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'OutfitRegular',
+    letterSpacing: 1,
+    marginBottom: 0,
+    marginTop: 2,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   episodeInfo: {
     flexDirection: 'row',
@@ -1331,7 +1348,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#FF775C',
   },
   dividerTextContainer: {
     paddingHorizontal: 16,

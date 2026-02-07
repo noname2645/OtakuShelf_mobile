@@ -19,6 +19,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import BottomNavBar from '../components/BottomNav';
@@ -34,7 +35,6 @@ const HERO_HEIGHT = height * 0.85;
 // Card dimensions - match web exactly
 const CARD_WIDTH = isMobile ? (width - 60) / 2 : Math.floor((width - 100) / 4);
 const CARD_HEIGHT = CARD_WIDTH * 1.45; // Match web aspect ratio
-const FONT_REGULAR = 'BricolageGrotesque_400Regular';
 
 // ========== ANIME CARD COMPONENT ==========
 const AnimeCard = React.memo(({ anime, onPress, index }) => {
@@ -297,7 +297,7 @@ const TrailerHero = React.memo(({ onOpenModal, featuredAnime, onSwipeUp }) => {
 
       {/* Gradient Overlay - matches web exactly */}
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.85)']}
+        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
         locations={[0.3, 0.5, 0.7, 1]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 0, y: 1 }}
@@ -378,25 +378,6 @@ const TrailerHero = React.memo(({ onOpenModal, featuredAnime, onSwipeUp }) => {
           <Text style={styles.detailsButtonText}>More Details</Text>
         </TouchableOpacity>
       </Animated.View>
-
-      {/* Navigation Arrows
-      {featuredAnime.length > 1 && (
-        <View style={styles.sliderBtns}>
-          <TouchableOpacity
-            style={styles.sliderBtn}
-            onPress={() => setCurrentIndex(prev => prev === 0 ? featuredAnime.length - 1 : prev - 1)}
-          >
-            <MaterialIcons name="arrow-back-ios" size={24} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.sliderBtn}
-            onPress={() => setCurrentIndex(prev => (prev + 1) % featuredAnime.length)}
-          >
-            <MaterialIcons name="arrow-forward-ios" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )} */}
 
       {/* Dots Indicator */}
       {featuredAnime.length > 1 && (
@@ -675,7 +656,17 @@ const HomeScreen = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>OtakuShelf</Text>
+        <MaskedView
+          style={{ height: 40, width: 220 }}
+          maskElement={<Text style={styles.logo}>OtakuShelf</Text>}
+        >
+          <LinearGradient
+            colors={['#ff6a00', '#ffcc00', '#ff0066', '#ff33cc']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ flex: 1 }}
+          />
+        </MaskedView>
         {!user ? (
           <TouchableOpacity
             style={styles.getStartedButton}
@@ -837,6 +828,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a1124',
+    fontFamily: 'BricolageRegular',
   },
 
   loadingScreen: {
@@ -850,7 +842,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 12,
     fontSize: 16,
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'BricolageRegular',
   },
 
   // Header
@@ -870,11 +862,11 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 26,
     color: '#fff',
-    fontFamily: FONT_REGULAR,
-    // marginTop removed
+    fontFamily: 'Prompt',
+    letterSpacing: 1,
+    marginTop: 5,
   },
 
 
@@ -995,7 +987,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 10,
     fontSize: 14,
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'BricolageBold',
   },
 
   // Content Overlay (Exact match from web)
@@ -1009,12 +1001,12 @@ const styles = StyleSheet.create({
 
   animeTitle: {
     fontSize: isMobile ? 28 : 40,
-    fontWeight: '900',
-    color: '#fff',
+    fontWeight: '700',
+    color: '#e20000ff',
     marginBottom: 8,
     lineHeight: isMobile ? 34 : 48,
     letterSpacing: 0.5,
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'OutfitRegular',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
@@ -1040,14 +1032,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'BricolageRegular',
   },
 
   metaText: {
     fontSize: isMobile ? 13 : 15,
     color: '#fff',
     fontWeight: '500',
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'BricolageRegular',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -1063,7 +1055,7 @@ const styles = StyleSheet.create({
     fontSize: isMobile ? 13 : 15,
     color: '#FFD700',
     fontWeight: '600',
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'BricolageRegular',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -1074,7 +1066,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     lineHeight: isMobile ? 20 : 24,
     marginBottom: 12,
-    fontFamily: FONT_REGULAR,
+    fontFamily: 'JosefinSans',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -1084,7 +1076,7 @@ const styles = StyleSheet.create({
     fontSize: isMobile ? 13 : 15,
     color: '#ddd',
     marginBottom: 20,
-    fontFamily: FONT_REGULAR,
+    // fontFamily: FONT_REGULAR,
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -1093,7 +1085,7 @@ const styles = StyleSheet.create({
   genresLabel: {
     color: '#fff',
     fontWeight: '600',
-    fontFamily: FONT_REGULAR,
+    // fontFamily: FONT_REGULAR,
   },
 
   detailsButton: {
@@ -1115,7 +1107,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
     textTransform: 'uppercase',
-    fontFamily: FONT_REGULAR,
+    // fontFamily: FONT_REGULAR,
   },
 
 
@@ -1164,7 +1156,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ff6b6b',
     textAlign: 'center',
-    fontFamily: 'SN Pro',
+    fontFamily: 'SNProRegular',
     letterSpacing: 1,
   },
 
@@ -1262,7 +1254,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginTop: 12,
-    fontFamily: FONT_REGULAR,
+    // fontFamily: FONT_REGULAR,
   },
   noResults: {
     alignItems: 'center',
@@ -1274,7 +1266,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 15,
     textAlign: 'center',
-    fontFamily: FONT_REGULAR,
+    // fontFamily: FONT_REGULAR,
   },
 
   // No Data
@@ -1285,7 +1277,7 @@ const styles = StyleSheet.create({
   noDataText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 16,
-    fontFamily: FONT_REGULAR,
+    // fontFamily: FONT_REGULAR,
   },
 
 });

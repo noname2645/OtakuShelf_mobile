@@ -704,6 +704,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0f1e',
+    fontFamily:'BricolageRegular'
   },
   header: {
     paddingTop: 50,
@@ -925,7 +926,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   cardTitle: {
-    fontFamily: 'Outfit',
+    fontFamily: 'OutfitRegular',
     fontWeight: '600',
     letterSpacing: 1,
     fontSize: 14,

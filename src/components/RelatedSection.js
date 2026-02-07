@@ -136,6 +136,8 @@ const normalizeAniListNode = (edge) => {
     format: node.format,
     genres: node.genres || [],
     trailer: node.trailer,
+    startDate: node.startDate,
+    endDate: node.endDate,
     relationType: edge.relationType,
     source: 'anilist',
     _originalData: node,
@@ -260,7 +262,11 @@ const RelatedSection = ({ animeId, animeMalId, onSelect }) => {
                   key={`${animeItem.id || index}-${relationType}`}
                   style={styles.card}
                   activeOpacity={0.8}
-                  onPress={() => onSelect && onSelect(animeItem)}
+                  onPress={() => onSelect && onSelect({
+                    ...animeItem,
+                    startDate: animeItem.startDate,
+                    endDate: animeItem.endDate,
+                  })}
                 >
                   <View style={styles.cardInner}>
                     <Image source={{ uri: image }} style={styles.cardImage} resizeMode="cover" />

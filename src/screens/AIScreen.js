@@ -21,6 +21,27 @@ import AnimeModal from '../components/AnimeModal';
 
 const { width } = Dimensions.get('window');
 
+const ANIME_DETAILS_QUERY = `
+  query ($id: Int) {
+    Media (id: $id, type: ANIME) {
+      id
+      title { romaji english native }
+      coverImage { extraLarge large medium }
+      bannerImage
+      description
+      episodes
+      status
+      format
+      genres
+      averageScore
+      studios { nodes { name } }
+      startDate { year month day }
+      endDate { year month day }
+      trailer { id site }
+    }
+  }
+`;
+
 const FormattedMessage = ({ content, style }) => {
     if (!content) return null;
     const lines = content.split('\n');
@@ -367,9 +388,41 @@ const AIScreen = ({ navigation }) => {
     };
 
     // Handle anime card press
-    const handleAnimePress = (anime) => {
+    const handleAnimePress = async (anime) => {
         setSelectedAnime(anime);
         setModalVisible(true);
+
+        // Fetch detailed info if dates are missing
+        if (!anime.startDate || !anime.endDate) {
+            try {
+                const response = await fetch('https://graphql.anilist.co', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: ANIME_DETAILS_QUERY,
+                        variables: { id: parseInt(anime.id) }
+                    })
+                });
+
+                const data = await response.json();
+                const media = data.data?.Media;
+
+                if (media) {
+                    setSelectedAnime(prev => ({
+                        ...prev,
+                        ...media,
+                        // Ensure we keep existing properties if media is partial
+                        title: media.title || prev.title,
+                        coverImage: media.coverImage || prev.coverImage,
+                    }));
+                }
+            } catch (error) {
+                console.log("Error fetching anime details:", error);
+            }
+        }
     };
 
     // Clear chat handler
@@ -454,6 +507,24 @@ const AIScreen = ({ navigation }) => {
                                         }}
                                     />
                                 </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                {/* Follow-up Suggestions */}
+                {msg.suggestions && msg.suggestions.length > 0 && (
+                    <View style={styles.followupSuggestions}>
+                        <Text style={styles.suggestionsLabel}>Suggested:</Text>
+                        <View style={styles.suggestionsChips}>
+                            {msg.suggestions.map((suggestion, idx) => (
+                                <TouchableOpacity
+                                    key={idx}
+                                    style={styles.suggestionChip}
+                                    onPress={() => handlePromptClick(suggestion)}
+                                >
+                                    <Text style={styles.suggestionChipText}>{suggestion}</Text>
+                                </TouchableOpacity>
                             ))}
                         </View>
                     </View>

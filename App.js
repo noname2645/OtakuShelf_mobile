@@ -3,7 +3,6 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { BricolageGrotesque_400Regular } from '@expo-google-fonts/bricolage-grotesque';
 import { AuthProvider } from './src/contexts/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -26,11 +25,14 @@ export default function App() {
     },
   };
 
-  const [fontsLoaded] = useFonts({
-    BricolageGrotesque_400Regular,
-    'SN Pro': require('./assets/SNPro-Regular.ttf'),
-    Outfit: require('./assets/Outfit-Regular.ttf'),
-  });
+const [fontsLoaded] = useFonts({
+  BricolageRegular: require('./assets/BricolageGrotesque-Regular.ttf'),
+  OutfitRegular: require('./assets/Outfit-Regular.ttf'),
+  SNProRegular: require('./assets/SNPro-Regular.ttf'),
+  JosefinSans: require('./assets/JosefinSans-Regular.ttf'),
+  JetbrainsMono: require('./assets/JetBrainsMono-Regular.ttf'),
+  Prompt: require('./assets/Prompt-Medium.ttf')
+});
 
   if (!fontsLoaded) {
     return null;
