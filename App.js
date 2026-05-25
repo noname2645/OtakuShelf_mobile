@@ -1,8 +1,10 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as NavigationBar from 'expo-navigation-bar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -17,12 +19,19 @@ import SettingsScreen from './src/screens/SettingsScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  React.useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync('#030712');
+      NavigationBar.setButtonStyleAsync('light');
+    }
+  }, []);
+
   const navTheme = {
     ...DefaultTheme,
     colors: {
       ...DefaultTheme.colors,
-      background: '#0a0f1e',
-      card: '#0a0f1e',
+      background: '#030712',
+      card: '#030712',
     },
   };
 
@@ -42,19 +51,19 @@ const [fontsLoaded] = useFonts({
   return (
     <AuthProvider>
       <NavigationContainer theme={navTheme}>
-        <StatusBar style="light" backgroundColor="#0a0f1e" />
+        <StatusBar style="light" backgroundColor="#030712" />
         <Stack.Navigator
           initialRouteName="Home"
           screenOptions={({ route }) => ({
             headerShown: false,
-            contentStyle: { backgroundColor: '#0a0f1e' },
+            contentStyle: { backgroundColor: '#030712' },
             animation:
               route.params?.transition === 'left'
                 ? 'slide_from_left'
                 : route.params?.transition === 'right'
                 ? 'slide_from_right'
                 : 'fade',
-            statusBarColor: '#0a0f1e',
+            statusBarColor: '#030712',
             statusBarStyle: 'light',
           })}
         >

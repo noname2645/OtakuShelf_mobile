@@ -269,13 +269,8 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
       <Image source={{ uri: imageUrl }} style={styles.heroImage} resizeMode="cover" />
       {/* Gradients */}
       <LinearGradient
-        colors={['rgba(3,7,18,0)', 'rgba(3,7,18,0.5)', 'rgba(3,7,18,0.85)', 'rgba(3,7,18,1)']}
-        locations={[0.25, 0.55, 0.8, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(3,7,18,0.55)', 'transparent']}
-        start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 0 }}
+        colors={['rgba(3,7,18,0.15)', 'rgba(3,7,18,0.4)', 'rgba(3,7,18,0.75)', 'rgba(3,7,18,1)']}
+        locations={[0, 0.5, 0.8, 1]}
         style={StyleSheet.absoluteFill}
       />
 

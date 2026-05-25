@@ -277,16 +277,16 @@ const RegisterScreen = ({ navigation }) => {
             {/* Register button */}
             <TouchableOpacity onPress={handleRegister} disabled={isLoading} activeOpacity={0.85} style={styles.primaryBtn}>
               <LinearGradient
-                colors={isLoading ? ['#888', '#666'] : ['#a855f7', '#7c3aed']}
+                colors={isLoading ? ['#888', '#666'] : ['#eb9b08', '#e07b00']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.primaryBtnInner}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="#000" size="small" />
                 ) : (
                   <>
-                    <Text style={[styles.primaryBtnText, { color: '#fff' }]}>Begin Adventure</Text>
-                    <Text style={[styles.primaryBtnArrow, { color: '#fff' }]}>→</Text>
+                    <Text style={[styles.primaryBtnText, { color: '#000' }]}>Begin Adventure</Text>
+                    <Text style={[styles.primaryBtnArrow, { color: '#000' }]}>→</Text>
                   </>
                 )}
               </LinearGradient>

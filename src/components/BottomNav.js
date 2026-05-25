@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     pointerEvents: 'box-none',
+    backgroundColor: 'transparent',
   },
   bottomBar: {
     position: 'absolute',

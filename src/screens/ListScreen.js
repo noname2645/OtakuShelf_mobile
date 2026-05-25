@@ -817,33 +817,34 @@ const ListScreen = ({ navigation }) => {
     <View style={styles.container}>
 
 
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>My Library</Text>
+        <TouchableOpacity style={styles.importBtn} onPress={handleFileSelect}>
+          {importing ? (
+            <ActivityIndicator size="small" color="#ffae00" />
+          ) : (
+            <>
+              <Ionicons name="document-text-outline" size={16} color="#ffae00" style={{ marginRight: 6 }} />
+              <Text style={styles.importBtnText}>Import</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabsContainer}>
-        <View style={styles.tabsScroll}>
-          {["watching", "completed", "planned", "dropped"].map(tab => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tabButton, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          {/* Import Button */}
-          <TouchableOpacity style={styles.importBtn} onPress={handleFileSelect}>
-            {importing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="document-text-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={styles.importBtnText}>Import</Text>
-              </>
-            )}
+        {["watching", "completed", "planned", "dropped"].map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabButton, activeTab === tab && styles.activeTab]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </Text>
           </TouchableOpacity>
-        </View>
+        ))}
       </View>
 
       {/* Main List */}
@@ -998,53 +999,68 @@ const ImportModal = ({ visible, onClose, onConfirm, fileName, importOption, setI
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0f1e',
+    backgroundColor: '#030712',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
 
-  tabsContainer: {
-    paddingVertical: 10,
-    marginBottom: 10
-  },
-  tabsScroll: {
+  header: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: 10
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+    fontFamily: 'OutfitRegular',
+    letterSpacing: 0.5,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
+    padding: 4,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   tabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
   },
   activeTab: {
-    backgroundColor: '#FF5533',
-    borderColor: '#FF5533'
+    backgroundColor: '#ffae00',
   },
   tabText: {
-    color: '#888',
-    fontWeight: '600',
-    fontSize: 14
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontFamily: 'OutfitRegular',
   },
   activeTabText: {
-    color: '#fff'
+    color: '#000000',
   },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#4f46e5',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 174, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 174, 0, 0.15)',
   },
   importBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 13
+    color: '#ffae00',
+    fontWeight: '700',
+    fontSize: 12,
+    fontFamily: 'OutfitRegular',
   },
   content: {
     flex: 1,
@@ -1063,7 +1079,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
-    backgroundColor: '#0a0f1e',
+    backgroundColor: '#030712',
     paddingHorizontal: 20,
     zIndex: 2
   },

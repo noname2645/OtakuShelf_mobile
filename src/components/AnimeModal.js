@@ -10,16 +10,18 @@ import {
   ActivityIndicator,
   Animated,
   ScrollView,
+  Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import YoutubePlayer from 'react-native-youtube-iframe';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import RelatedSection from './RelatedSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
-const MODAL_HEADER_HEIGHT = height * 0.42;
+const MODAL_HEADER_HEIGHT = height * 0.30;
 
 const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');
@@ -74,7 +76,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
       episodes: anime.episodes || anime.episodeCount || "?",
       status: anime.status || "Unknown",
       format: anime.format || anime.type || "Unknown",
-      rating: anime.isAdult ? "R - 17+ (violence & profanity)" : (anime.rating || "PG-13"),
+      rating: anime.isAdult ? "R - 17+" : (anime.rating || "PG-13"),
       studio,
       synopsis: anime.description?.replace(/<[^>]*>/g, '') || "No description available.",
       bannerImage: anime.bannerImage || image,
@@ -85,25 +87,25 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
     };
   }, [anime]);
 
-  const truncateSynopsis = (text, maxLength = 300) => {
+  const truncateSynopsis = (text, maxLength = 320) => {
     if (!text) return "No description available.";
     return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
   };
 
   const getStatusColor = (status) => {
-    if (!status) return "#6b7280";
+    if (!status) return "#94a3b8";
     const normalizedStatus = status.toString().toUpperCase().replace(/\s+/g, '_');
     const statusColors = {
-      "FINISHED": "#22c55e",
+      "FINISHED": "#10b981",
       "RELEASING": "#3b82f6",
-      "NOT_YET_RELEASED": "#3b82f6",
+      "NOT_YET_RELEASED": "#fbbf24",
       "CANCELLED": "#ef4444",
       "HIATUS": "#f59e0b"
     };
-    return statusColors[normalizedStatus] || "#6b7280";
+    return statusColors[normalizedStatus] || "#94a3b8";
   };
 
-  const formatAniListDate = (dateObj) => {
+  const formatAniListDate = (dateObj, showYear = true) => {
     if (!dateObj) return "TBA";
     if (typeof dateObj === 'string') {
       const parsed = new Date(dateObj);
@@ -111,13 +113,13 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
       const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const day = String(parsed.getDate()).padStart(2, "0");
       const month = months[parsed.getMonth()];
-      return `${day} ${month} ${parsed.getFullYear()}`;
+      return showYear ? `${day} ${month} ${parsed.getFullYear()}` : `${day} ${month}`;
     }
     if (!dateObj.year) return "TBA";
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const day = dateObj.day ? String(dateObj.day).padStart(2, "0") : "??";
     const month = dateObj.month ? months[dateObj.month - 1] : "??";
-    return `${day} ${month} ${dateObj.year}`;
+    return showYear ? `${day} ${month} ${dateObj.year}` : `${day} ${month}`;
   };
 
   const getAiredRange = () => {
@@ -130,6 +132,11 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
       return formatAniListDate(animeData.startDate);
     }
     if (startValid && endValid) {
+      const startYear = animeData.startDate.year || (typeof animeData.startDate === 'string' && new Date(animeData.startDate).getFullYear());
+      const endYear = animeData.endDate.year || (typeof animeData.endDate === 'string' && new Date(animeData.endDate).getFullYear());
+      if (startYear && endYear && startYear === endYear) {
+        return `${formatAniListDate(animeData.startDate, false)} - ${formatAniListDate(animeData.endDate, true)}`;
+      }
       return `${formatAniListDate(animeData.startDate)} - ${formatAniListDate(animeData.endDate)}`;
     }
     if (startValid) {
@@ -182,7 +189,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
     tabAnim.setValue(0);
     Animated.timing(tabAnim, {
       toValue: 1,
-      duration: 220,
+      duration: 200,
       useNativeDriver: true,
     }).start();
   }, [activeTab, tabAnim]);
@@ -199,14 +206,14 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.backdrop} />
         <View style={styles.modalContainer}>
-          {/* Header with Banner */}
+          {/* Header Banner Section */}
           <Animated.View
             pointerEvents="box-none"
             style={[
               styles.header,
               {
                 opacity: scrollY.interpolate({
-                  inputRange: [0, 180],
+                  inputRange: [0, 150],
                   outputRange: [1, 0],
                   extrapolate: 'clamp',
                 }),
@@ -218,18 +225,13 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
               style={styles.bannerImage}
               resizeMode="cover"
             />
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeBadgeText}>{animeData.format}</Text>
-              <View style={styles.typeBadgeDot} />
-              <Text style={styles.typeBadgeDate}>{getAiredRange()}</Text>
-            </View>
             <LinearGradient
-              colors={['transparent', 'rgba(10, 15, 30, 0.65)', 'rgba(10, 15, 30, 0.92)']}
-              locations={[0.06, 0.58, 1]}
+              colors={['transparent', 'rgba(3, 7, 18, 0.7)', 'rgba(3, 7, 18, 0.98)']}
+              locations={[0, 0.6, 1]}
               style={styles.headerGradient}
             />
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Ionicons name="close" size={22} color="#fff" />
             </TouchableOpacity>
           </Animated.View>
 
@@ -243,50 +245,117 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
             scrollEventThrottle={16}
           >
             <View style={styles.headerSpacer} />
-            {/* Title */}
-            <Text style={styles.title} numberOfLines={3}>
-              {animeData.title}
-            </Text>
 
-            {/* Stats */}
-            <View style={styles.statsRow}>
-              <View style={styles.statBadge}>
-                <Text style={styles.statText}>⭐ {animeData.score || 'N/A'}</Text>
+            {/* Title & Stats */}
+            <View style={styles.metaSection}>
+              <Text style={styles.title}>
+                {animeData.title}
+              </Text>
+              
+              <View style={styles.statsRow}>
+                {animeData.score && (
+                  <View style={styles.statBadge}>
+                    <Ionicons name="star" size={13} color="#ffae00" style={{ marginRight: 4 }} />
+                    <Text style={[styles.statText, { color: '#ffae00' }]}>{animeData.score}</Text>
+                  </View>
+                )}
+                <View style={styles.statBadge}>
+                  <Ionicons name="tv-outline" size={13} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+                  <Text style={styles.statText}>{animeData.episodes} Episodes</Text>
+                </View>
+                <View style={styles.statBadge}>
+                  <Text style={[styles.statText, { fontSize: 11, fontWeight: '700' }]}>{animeData.rating}</Text>
+                </View>
               </View>
-              <View style={styles.statBadge}>
-                <Text style={styles.statText}>{animeData.episodes} Episodes</Text>
+            </View>
+
+            {/* Glanceable Info Grid */}
+            <View style={styles.infoGrid}>
+              <View style={styles.gridRow}>
+                <View style={styles.gridItem}>
+                  <Ionicons name="play-circle-outline" size={16} color="#ffae00" style={{ marginRight: 8 }} />
+                  <View style={styles.gridTextContainer}>
+                    <Text style={styles.gridLabel}>Format</Text>
+                    <Text style={styles.gridValue}>{animeData.format || 'N/A'}</Text>
+                  </View>
+                </View>
+                <View style={[styles.gridItem, styles.noRightBorder]}>
+                  <Ionicons name="hourglass-outline" size={16} color="#ffae00" style={{ marginRight: 8 }} />
+                  <View style={styles.gridTextContainer}>
+                    <Text style={styles.gridLabel}>Status</Text>
+                    <Text style={[styles.gridValue, { color: getStatusColor(animeData.status) }]}>
+                      {animeData.status || 'N/A'}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.statBadge}>
-                <Text style={styles.statText}>{animeData.rating}</Text>
+              <View style={[styles.gridRow, styles.noBottomBorder]}>
+                <View style={styles.gridItem}>
+                  <Ionicons name="videocam-outline" size={16} color="#ffae00" style={{ marginRight: 8 }} />
+                  <View style={styles.gridTextContainer}>
+                    <Text style={styles.gridLabel}>Studio</Text>
+                    <Text style={styles.gridValue}>{animeData.studio || 'N/A'}</Text>
+                  </View>
+                </View>
+                <View style={[styles.gridItem, styles.noRightBorder]}>
+                  <Ionicons name="calendar-outline" size={16} color="#ffae00" style={{ marginRight: 8 }} />
+                  <View style={styles.gridTextContainer}>
+                    <Text style={styles.gridLabel}>Aired</Text>
+                    <Text style={styles.gridValue}>{getAiredRange() || 'N/A'}</Text>
+                  </View>
+                </View>
               </View>
+            </View>
+
+            {/* Compact Action Bar */}
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.watchingBtn]}
+                onPress={() => addToList('watching')}
+                disabled={isAddingToList}
+              >
+                {isAddingToList ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="play" size={15} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.actionBtnText}>Watching</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionButton, styles.completedBtn]}
+                onPress={() => addToList('completed')}
+                disabled={isAddingToList}
+              >
+                <Ionicons name="checkmark-done" size={16} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.actionBtnText}>Completed</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionButton, styles.plannedBtn]}
+                onPress={() => addToList('planned')}
+                disabled={isAddingToList}
+              >
+                <Ionicons name="bookmark" size={14} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.actionBtnText}>Plan</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Tabs */}
             <View style={styles.tabContainer}>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'info' && styles.activeTab]}
-                onPress={() => setActiveTab('info')}
-              >
-                <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>
-                  Synopsis
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'related' && styles.activeTab]}
-                onPress={() => setActiveTab('related')}
-              >
-                <Text style={[styles.tabText, activeTab === 'related' && styles.activeTabText]}>
-                  Related
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'trailer' && styles.activeTab]}
-                onPress={() => setActiveTab('trailer')}
-              >
-                <Text style={[styles.tabText, activeTab === 'trailer' && styles.activeTabText]}>
-                  Trailer
-                </Text>
-              </TouchableOpacity>
+              {['info', 'related', 'trailer'].map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.tab, activeTab === tab && styles.activeTab]}
+                  onPress={() => setActiveTab(tab)}
+                >
+                  <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                    {tab === 'info' ? 'Synopsis' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* Tab Content */}
@@ -300,7 +369,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
                     {
                       translateY: tabAnim.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [8, 0],
+                        outputRange: [6, 0],
                       }),
                     },
                   ],
@@ -308,37 +377,21 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
               ]}
             >
               {activeTab === 'info' && (
-                <>
+                <View>
                   <Text style={styles.synopsis}>
-                    {truncateSynopsis(animeData.synopsis, 500)}
+                    {truncateSynopsis(animeData.synopsis, 360)}
                   </Text>
 
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Status:</Text>
-                    <Text style={[styles.infoValue, { color: getStatusColor(animeData.status) }]}>
-                      {animeData.status}
-                    </Text>
-                  </View>
-
-                  {/* Genres */}
                   {animeData.genres.length > 0 && (
                     <View style={styles.genresContainer}>
-                      <Text style={styles.genresLabel}>Genres:</Text>
-                      <View style={styles.genresRow}>
-                        {animeData.genres.map((genre, index) => (
-                          <View key={index} style={styles.genrePill}>
-                            <Text style={styles.genreText}>{genre}</Text>
-                          </View>
-                        ))}
-                      </View>
+                      {animeData.genres.map((genre, idx) => (
+                        <View key={idx} style={styles.genreTag}>
+                          <Text style={styles.genreTagText}>{genre}</Text>
+                        </View>
+                      ))}
                     </View>
                   )}
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Studio:</Text>
-                    <Text style={styles.infoValue}>{animeData.studio}</Text>
-                  </View>
-                </>
+                </View>
               )}
 
               {activeTab === 'related' && (
@@ -355,52 +408,21 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
               )}
 
               {activeTab === 'trailer' && (
-                <>
+                <View style={styles.trailerContainer}>
                   {getTrailerId() ? (
                     <View style={styles.trailerWrapper}>
                       <YoutubePlayer
-                        height={220}
+                        height={200}
                         play={false}
                         videoId={getTrailerId()}
                       />
                     </View>
                   ) : (
-                    <Text style={styles.emptyText}>No trailer available.</Text>
+                    <Text style={styles.emptyText}>No trailer video available.</Text>
                   )}
-                </>
+                </View>
               )}
             </Animated.View>
-
-            {/* Add to List Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.watchingButton]}
-                onPress={() => addToList('watching')}
-                disabled={isAddingToList}
-              >
-                {isAddingToList ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.actionButtonText}>Add to Watching</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.completedButton]}
-                onPress={() => addToList('completed')}
-                disabled={isAddingToList}
-              >
-                <Text style={styles.actionButtonText}>Mark Completed</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.plannedButton]}
-                onPress={() => addToList('planned')}
-                disabled={isAddingToList}
-              >
-                <Text style={styles.actionButtonText}>Plan to Watch</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ height: 50 }} />
           </Animated.ScrollView>
         </View>
       </View>
@@ -415,13 +437,14 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(5, 7, 12, 0.85)',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0a0f1e',
+    backgroundColor: '#030712',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    marginTop: Platform.OS === 'ios' ? 44 : 20,
     overflow: 'hidden',
   },
   header: {
@@ -445,198 +468,205 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    top: Platform.OS === 'ios' ? 24 : 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(3, 7, 18, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  typeBadge: {
-    position: 'absolute',
-    alignSelf: 'center',
-    bottom: 16,
-    minHeight: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    zIndex: 3,
-  },
-  typeBadgeText: {
-    color: '#8cc8ff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    fontFamily: 'JetbrainsMono'
-  },
-  typeBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    marginHorizontal: 10,
-  },
-  typeBadgeDate: {
-    color: '#e5e7eb',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-    fontFamily: 'JetbrainsMono',
-  },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    marginTop: 12,
+    paddingHorizontal: 16,
   },
   headerSpacer: {
     height: MODAL_HEADER_HEIGHT,
   },
+  metaSection: {
+    marginBottom: 16,
+    zIndex: 5,
+  },
   title: {
-    fontSize: 28,
-    letterSpacing: 1,
-    color: '#4facfe',
-    marginBottom: 15,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#fff',
     fontFamily: 'OutfitRegular',
+    lineHeight: 28,
+    marginBottom: 8,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   statsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
+    alignItems: 'center',
+    gap: 8,
   },
   statBadge: {
-    backgroundColor: 'rgba(255, 89, 0, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 10,
-    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statText: {
-    color: '#fff',
-    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'OutfitRegular',
+  },
+  infoGrid: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  gridRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  noBottomBorder: {
+    borderBottomWidth: 0,
+  },
+  gridItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.05)',
+  },
+  noRightBorder: {
+    borderRightWidth: 0,
+  },
+  gridTextContainer: {
+    flex: 1,
+  },
+  gridLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 1,
+    fontFamily: 'OutfitRegular',
+  },
+  gridValue: {
+    color: '#fff',
+    fontSize: 11.5,
+    fontWeight: '700',
+    fontFamily: 'OutfitRegular',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  watchingBtn: {
+    backgroundColor: '#10b981',
+    flex: 1.2,
+  },
+  completedBtn: {
+    backgroundColor: '#3b82f6',
+    flex: 1.2,
+  },
+  plannedBtn: {
+    backgroundColor: '#f97316',
+    flex: 0.8,
+  },
+  actionBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'OutfitRegular',
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 16,
   },
   tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginRight: 15,
+    paddingVertical: 10,
+    marginRight: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#ff5900',
+    borderBottomColor: '#ffae00',
   },
   tabText: {
-    color: '#999',
-    fontSize: 16,
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'OutfitRegular',
   },
   activeTabText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   tabContent: {
-    marginBottom: 20,
+    paddingBottom: 60,
   },
-  emptyText: {
-    color: '#999',
+  synopsis: {
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
+    lineHeight: 22,
+    fontFamily: 'JosefinSans',
+    marginBottom: 16,
+  },
+  genresContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  genreTag: {
+    backgroundColor: 'rgba(255, 174, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 174, 0, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  genreTagText: {
+    color: '#ffae00',
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'OutfitRegular',
+  },
+  trailerContainer: {
+    marginTop: 4,
   },
   trailerWrapper: {
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
   },
-  synopsis: {
-    color: '#ccc',
-    fontSize: 18,
-    lineHeight: 24,
-    marginBottom: 20,
+  emptyText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 12,
     fontFamily: 'JosefinSans',
-    color: '#01d05eff'
-  },
-  genresContainer: {
-    flexDirection: 'row',
-    paddingVertical: 10,
-  },
-  genresLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 10,
-    marginTop: 6,
-  },
-  genresRow: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  genrePill: {
-    backgroundColor: 'rgba(138, 43, 226, 0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  genreText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  infoLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginRight: 6,
-  },
-  infoValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  actionButtons: {
-    marginTop: 20,
-  },
-  actionButton: {
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  watchingButton: {
-    backgroundColor: '#4CAF50',
-  },
-  completedButton: {
-    backgroundColor: '#2196F3',
-  },
-  plannedButton: {
-    backgroundColor: '#FF9800',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

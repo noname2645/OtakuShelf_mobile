@@ -25,6 +25,10 @@
       },
       "package": "com.otakushelf.mobile"
     },
+    "androidNavigationBar": {
+      "backgroundColor": "#0a0f1e",
+      "barStyle": "light-content"
+    },
     "web": {
       "favicon": "./assets/favicon.png"
     },

@@ -689,7 +689,7 @@ const SearchScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0f1e',
+    backgroundColor: '#030712',
     fontFamily: 'BricolageRegular'
   },
   header: {
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   filtersCard: {
-    backgroundColor: 'rgba(10, 15, 30, 0.98)', // Darker to match container
+    backgroundColor: 'rgba(3, 7, 18, 0.98)', // Darker to match container
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
