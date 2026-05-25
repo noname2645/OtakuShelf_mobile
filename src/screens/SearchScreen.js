@@ -16,7 +16,6 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import AnimeModal from '../components/AnimeModal';
 import BottomNav from '../components/BottomNav';
-import BeautifulLoader from '../components/BeautifulLoader';
 import AnimatedAnimeCard from '../components/AnimatedAnimeCard';
 
 const { width } = Dimensions.get('window');
@@ -634,8 +633,7 @@ const SearchScreen = ({ navigation }) => {
       {/* Results */}
       {isSearching && searchResults.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <BeautifulLoader />
-          <Text style={styles.loadingText}>Searching...</Text>
+          <ActivityIndicator size="large" color="#ff5900" style={{ transform: [{ scale: 1.5 }] }} />
         </View>
       ) : (
         <FlatList
@@ -648,23 +646,14 @@ const SearchScreen = ({ navigation }) => {
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={true}
-          ListHeaderComponent={
-            <View>
-              {searchResults.length > 0 && (
-                <Text style={styles.resultsCountText}>
-                  Found {totalResults.toLocaleString()} titles
-                </Text>
-              )}
-            </View>
-          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               {searchText || hasActiveFilters ? (
                 <Text style={styles.emptyText}>No results found</Text>
               ) : (
                 <>
-                  <BeautifulLoader />
-                  <Text style={styles.emptyText}>Gaining Power...</Text>
+                  <Text style={{ fontSize: 40, marginBottom: 10 }}>🔍</Text>
+                  <Text style={styles.emptyText}>Search for your favorite anime</Text>
                 </>
               )}
             </View>
@@ -675,9 +664,7 @@ const SearchScreen = ({ navigation }) => {
           ListFooterComponent={
             searchLoading ? (
               <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                <View style={{ transform: [{ scale: 0.5 }] }}>
-                  <BeautifulLoader />
-                </View>
+                <ActivityIndicator size="small" color="#ff5900" />
               </View>
             ) : null
           }

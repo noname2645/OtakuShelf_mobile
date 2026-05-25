@@ -48,10 +48,11 @@ const [fontsLoaded] = useFonts({
             headerShown: false,
             contentStyle: { backgroundColor: '#0a0f1e' },
             animation:
-              route.params?.transition === 'left' ||
-                route.params?.transition === 'right'
-                ? 'fade_from_bottom'
-                : 'slide_from_right',
+              route.params?.transition === 'left'
+                ? 'slide_from_left'
+                : route.params?.transition === 'right'
+                ? 'slide_from_right'
+                : 'fade',
             statusBarColor: '#0a0f1e',
             statusBarStyle: 'light',
           })}

@@ -14,12 +14,14 @@ import {
     Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
 import AnimatedAnimeCard from '../components/AnimatedAnimeCard';
 import AnimeModal from '../components/AnimeModal';
 
 const { width } = Dimensions.get('window');
+const otakuAI = require('../../assets/icon.png');
 
 const ANIME_DETAILS_QUERY = `
   query ($id: Int) {
@@ -48,25 +50,37 @@ const FormattedMessage = ({ content, style }) => {
     return (
         <View>
             {lines.map((line, index) => {
-                if (!line.trim()) return <View key={index} style={{ height: 10 }} />;
+                if (!line.trim()) return <View key={index} style={{ height: 8 }} />;
 
                 // Detect list item "1. Title: Description" pattern
                 const listMatch = !line.includes('**') && line.match(/^(\d+\.|-)\s+([^:]+)(:\s+.*)$/);
                 if (listMatch) {
                     return (
-                        <Text key={index} style={[style, { marginBottom: 8 }]}>
-                            <Text style={{ fontWeight: 'bold', color: '#fff' }}>{listMatch[1]} {listMatch[2]}</Text>
-                            <Text>{listMatch[3]}</Text>
+                        <Text key={index} style={[style, { marginBottom: 6 }]}>
+                            <Text style={{ fontWeight: '700', color: '#fff', fontFamily: 'OutfitRegular' }}>{listMatch[1]} {listMatch[2]}</Text>
+                            <Text style={{ fontFamily: 'OutfitRegular' }}>{listMatch[3]}</Text>
                         </Text>
                     );
                 }
 
-                const parts = line.split(/(\*\*.*?\*\*)/g);
+                // Parse bold (**text**) and code (`text`) inline styles
+                const parts = line.split(/(\*\*.*?\*\*|`.*?`)/g);
                 return (
-                    <Text key={index} style={[style, { marginBottom: 4 }]}>
+                    <Text key={index} style={[style, { marginBottom: 4, fontFamily: 'OutfitRegular' }]}>
                         {parts.map((part, i) => {
                             if (part.startsWith('**') && part.endsWith('**')) {
-                                return <Text key={i} style={{ fontWeight: 'bold', color: '#fff' }}>{part.slice(2, -2)}</Text>;
+                                return (
+                                    <Text key={i} style={{ fontWeight: '700', color: '#fff', fontFamily: 'OutfitRegular' }}>
+                                        {part.slice(2, -2)}
+                                    </Text>
+                                );
+                            }
+                            if (part.startsWith('`') && part.endsWith('`')) {
+                                return (
+                                    <Text key={i} style={styles.codeInline}>
+                                        {part.slice(1, -1)}
+                                    </Text>
+                                );
                             }
                             return <Text key={i}>{part}</Text>;
                         })}
@@ -81,15 +95,17 @@ const AIScreen = ({ navigation }) => {
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [streaming, setStreaming] = useState(false);
+    const [streamingText, setStreamingText] = useState("");
     const [conversationContext, setConversationContext] = useState({
-        mood: 'neutral',
-        suggestions: []
+        mood: 'friendly',
+        suggestions: ["Recommend something new!", "Based on my history", "Top anime of the season"]
     });
     const [selectedAnime, setSelectedAnime] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    const messagesEndRef = useRef(null);
     const scrollViewRef = useRef(null);
+    const typingIntervalRef = useRef(null);
     const scrollY = useRef(0);
 
     const { user, API } = useAuth();
@@ -117,28 +133,36 @@ const AIScreen = ({ navigation }) => {
                     setMessages(parsedConvo);
                     setTimeout(() => scrollToBottom(true), 300);
                 } else {
-                    // Add welcome message for first-time users
                     const welcomeMessage = {
                         role: "ai",
-                        text: "Hey there! 👋 I'm OtakuAI, your anime companion. I can recommend shows based on your taste, chat about anime, or just hang out. What brings you here today?",
+                        text: `Yo! 👋 I'm OtakuAI, your personal anime companion. Think of me as your ultimate nakama in the anime world! \n\nI've analyzed your profile and I'm ready to dive deep into discussions or find your next binge-worthy masterpiece. What's on your mind today?`,
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        mood: 'neutral',
-                        id: Date.now()
+                        mood: 'friendly',
+                        id: Date.now() + Math.random()
                     };
                     setMessages([welcomeMessage]);
                     setTimeout(() => scrollToBottom(true), 300);
                 }
             } catch (error) {
-                console.log('Error loading conversation:', error);
+                console.error("Failed to parse saved conversation:", error);
             }
         };
         loadConversation();
     }, []);
 
+    // Cleanup interval on unmount
+    useEffect(() => {
+        return () => {
+            if (typingIntervalRef.current) {
+                clearInterval(typingIntervalRef.current);
+            }
+        };
+    }, []);
+
     // Save conversation to storage
     useEffect(() => {
         const saveConversation = async () => {
-            if (messages.length > 0) {
+            if (messages.length > 0 && !streaming) {
                 try {
                     await AsyncStorage.setItem(
                         'ai_conversation',
@@ -150,7 +174,7 @@ const AIScreen = ({ navigation }) => {
             }
         };
         saveConversation();
-    }, [messages]);
+    }, [messages, streaming]);
 
     // Auto-scroll when messages change
     useEffect(() => {
@@ -162,40 +186,66 @@ const AIScreen = ({ navigation }) => {
         }
     }, [messages, loading]);
 
+    // Typewriter effect for streaming
+    const typewriterEffect = (fullText, messageData) => {
+        if (!fullText) {
+            setMessages(prev => [...prev, messageData]);
+            return;
+        }
+        
+        setStreaming(true);
+        setStreamingText("");
+
+        let currentIndex = 0;
+        const typingSpeed = 2;
+
+        if (typingIntervalRef.current) {
+            clearInterval(typingIntervalRef.current);
+        }
+
+        typingIntervalRef.current = setInterval(() => {
+            if (currentIndex < fullText.length) {
+                setStreamingText(fullText.substring(0, currentIndex + 1));
+                currentIndex++;
+                if (currentIndex % 10 === 0) scrollToBottom();
+            } else {
+                clearInterval(typingIntervalRef.current);
+                typingIntervalRef.current = null;
+                setStreaming(false);
+                setStreamingText("");
+                setMessages((prev) => [...prev, messageData]);
+            }
+        }, typingSpeed);
+    };
+
+    // Send Message function
     const sendMessage = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || loading) return;
 
         const userText = input;
+        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const userMsg = {
+            role: "user",
+            text: userText,
+            timestamp,
+            id: Date.now()
+        };
 
-        // Add user message
-        setMessages((prev) => [
-            ...prev,
-            {
-                role: "user",
-                text: userText,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                id: Date.now()
-            },
-        ]);
-
+        setMessages((prev) => [...prev, userMsg]);
         setInput("");
         setLoading(true);
+
         setTimeout(() => scrollToBottom(), 50);
 
         try {
             const token = await AsyncStorage.getItem("token");
-
-            // Prepare history (last 10 messages) to send to backend
-            // Filter out messages without text to prevent backend crashes
-            const history = messages.slice(-10)
-                .filter(msg => msg.text && msg.text.trim()) // Only include messages with actual text
+            const history = messages.slice(-8)
+                .filter(msg => msg.text && msg.text.trim())
                 .map(msg => ({
                     role: msg.role === 'ai' ? 'assistant' : 'user',
-                    content: msg.text
+                    content: msg.text || ""
                 }));
-
-            console.log('Sending to:', `${API}/api/ai/chat`);
-            console.log('Message:', userText);
 
             const res = await fetch(`${API}/api/ai/chat`, {
                 method: "POST",
@@ -205,186 +255,65 @@ const AIScreen = ({ navigation }) => {
                 },
                 body: JSON.stringify({
                     message: userText,
-                    history: history, // Send conversation history
-                    userId: user?._id || user?.id,
-                    context: conversationContext
-                }),
-            });
-
-            console.log('Response status:', res.status);
-
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error('Server error:', errorText);
-                throw new Error(`Server error: ${res.status}`);
-            }
-
-            const data = await res.json();
-            console.log('Response data:', data);
-
-            if (!data || !data.reply) {
-                console.error('Invalid response format:', data);
-                throw new Error('Invalid response from server');
-            }
-
-            // Update conversation context
-            setConversationContext(prev => ({
-                ...prev,
-                mood: data.context?.mood || 'neutral',
-                suggestions: data.context?.suggestions || []
-            }));
-
-            // Add AI message
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: "ai",
-                    text: data.reply,
-                    anime: data.anime || [],
-                    context: data.context,
-                    suggestions: data.context?.suggestions || [],
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    mood: data.context?.mood || 'neutral',
-                    id: Date.now() + 1
-                },
-            ]);
-
-            console.log('AI message added successfully');
-
-        } catch (err) {
-            console.error('AI Chat Error:', err);
-            console.error('Error details:', err.message);
-
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: "ai",
-                    text: `Error: ${err.message}. Please check your connection and try again.`,
-                    isError: true,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    id: Date.now() + 1
-                },
-            ]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Quick prompts for easy interaction
-    const quickPrompts = [
-        "Recommend me a comedy anime",
-        "I'm in the mood for something adventurous",
-        "What's similar to Jujutsu Kaisen?",
-        "Find me hidden gem anime",
-        "Recommend based on my watch list",
-        "What should I watch next?",
-        "Suggest a short anime series"
-    ];
-
-    // Handle quick prompt click - sends message directly
-    const handlePromptClick = async (prompt) => {
-        if (!prompt.trim() || loading) return;
-
-        // Add user message immediately
-        setMessages((prev) => [
-            ...prev,
-            {
-                role: "user",
-                text: prompt,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                id: Date.now()
-            },
-        ]);
-
-        setLoading(true);
-        setTimeout(() => scrollToBottom(), 50);
-
-        try {
-            const token = await AsyncStorage.getItem("token");
-
-            // Prepare history (last 10 messages)
-            // Filter out messages without text to prevent backend crashes
-            const history = messages.slice(-10)
-                .filter(msg => msg.text && msg.text.trim()) // Only include messages with actual text
-                .map(msg => ({
-                    role: msg.role === 'ai' ? 'assistant' : 'user',
-                    content: msg.text
-                }));
-
-            console.log('Sending prompt to:', `${API}/api/ai/chat`);
-            console.log('Prompt:', prompt);
-
-            const res = await fetch(`${API}/api/ai/chat`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    message: prompt,
                     history: history,
                     userId: user?._id || user?.id,
                     context: conversationContext
                 }),
             });
 
-            console.log('Response status:', res.status);
-
             if (!res.ok) {
                 const errorText = await res.text();
                 console.error('Server error:', errorText);
                 throw new Error(`Server error: ${res.status}`);
             }
 
-            const data = await res.json();
-            console.log('Response data:', data);
-
-            if (!data || !data.reply) {
-                console.error('Invalid response format:', data);
-                throw new Error('Invalid response from server');
+            const response = await res.json();
+            
+            if (response.status === 'error') {
+                throw new Error(response.message || "Failed to generate AI response");
             }
 
-            // Update conversation context
+            const data = (response.status && response.data) ? response.data : response;
+
             setConversationContext(prev => ({
                 ...prev,
                 mood: data.context?.mood || 'neutral',
                 suggestions: data.context?.suggestions || []
             }));
 
-            // Add AI message
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: "ai",
-                    text: data.reply,
-                    anime: data.anime || [],
-                    context: data.context,
-                    suggestions: data.context?.suggestions || [],
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    mood: data.context?.mood || 'neutral',
-                    id: Date.now() + 1
-                },
-            ]);
+            setLoading(false);
 
-            console.log('AI message added successfully');
+            const aiMessageData = {
+                role: "ai",
+                text: data.reply || "Something went wrong, but I'm still here!",
+                anime: data.anime || [],
+                context: data.context || {},
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                mood: data.context?.mood || 'neutral',
+                id: Date.now() + 1
+            };
+
+            typewriterEffect(data.reply, aiMessageData);
 
         } catch (err) {
-            console.error('AI Chat Error:', err);
-            console.error('Error details:', err.message);
-
+            console.error("AI Chat Error:", err);
+            setLoading(false);
             setMessages((prev) => [
                 ...prev,
                 {
                     role: "ai",
-                    text: `Error: ${err.message}. Please check your connection and try again.`,
+                    text: "Hmm, having a little trouble connecting. Check your internet or try again! 🌸",
                     isError: true,
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     id: Date.now() + 1
                 },
             ]);
-        } finally {
-            setLoading(false);
         }
+    };
+
+    // Handle quick prompt chip click
+    const handlePromptClick = (prompt) => {
+        setInput(prompt);
     };
 
     // Handle anime card press
@@ -414,7 +343,6 @@ const AIScreen = ({ navigation }) => {
                     setSelectedAnime(prev => ({
                         ...prev,
                         ...media,
-                        // Ensure we keep existing properties if media is partial
                         title: media.title || prev.title,
                         coverImage: media.coverImage || prev.coverImage,
                     }));
@@ -439,19 +367,25 @@ const AIScreen = ({ navigation }) => {
                     text: "Clear",
                     style: "destructive",
                     onPress: async () => {
+                        if (typingIntervalRef.current) {
+                            clearInterval(typingIntervalRef.current);
+                            typingIntervalRef.current = null;
+                        }
                         setMessages([]);
                         await AsyncStorage.removeItem('ai_conversation');
-                        setConversationContext({ mood: 'neutral', suggestions: [] });
+                        setConversationContext({ 
+                            mood: 'friendly', 
+                            suggestions: ["Recommend something new!", "Based on my history", "Top anime of the season"] 
+                        });
 
-                        // Re-add welcome message
-                        const welcomeMessage = {
+                        const welcomeMsg = {
                             role: "ai",
-                            text: "Chat cleared! What's next on your watchlist?",
+                            text: "Chat cleared! Ready to start fresh. What's on your mind?",
                             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            mood: 'neutral',
+                            mood: 'friendly',
                             id: Date.now()
                         };
-                        setMessages([welcomeMessage]);
+                        setMessages([welcomeMsg]);
                     }
                 }
             ]
@@ -463,70 +397,70 @@ const AIScreen = ({ navigation }) => {
         const isUser = msg.role === "user";
 
         return (
-            <View key={msg.id} style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
-                <View style={styles.messageHeader}>
-                    <View style={[styles.messageAvatar, isUser ? styles.userAvatar : styles.aiAvatar]}>
-                        {isUser && user?.photo ? (
-                            <Image source={{ uri: user.photo }} style={styles.avatarImage} resizeMode="cover" />
+            <View key={msg.id || Math.random()} style={[styles.messageBubble, isUser ? styles.userBubble : styles.aiBubble]}>
+                <View style={[styles.messageHeader, isUser && styles.userMessageHeader]}>
+                    <View style={styles.messageAvatar}>
+                        {isUser ? (
+                            user?.photo ? (
+                                <Image source={{ uri: user.photo }} style={styles.avatarImage} resizeMode="cover" />
+                            ) : (
+                                <View style={styles.userInitialsContainer}>
+                                    <Text style={styles.userInitials}>
+                                        {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                                    </Text>
+                                </View>
+                            )
                         ) : (
-                            <Text style={styles.avatarText}>{isUser ? "👤" : "🤖"}</Text>
+                            <Image source={otakuAI} style={styles.avatarImage} resizeMode="contain" />
                         )}
                     </View>
                     <View style={styles.messageMeta}>
-                        <Text style={[styles.messageSender, isUser ? styles.userSender : styles.aiSender]}>
+                        <Text style={styles.messageSender}>
                             {isUser ? (user?.name || "You") : "Otaku AI"}
                         </Text>
                         <Text style={styles.messageTime}>{msg.timestamp}</Text>
                     </View>
                 </View>
 
-                <View style={[styles.messageContent, isUser ? styles.userContent : styles.aiContent]}>
-                    {isUser ? (
+                {isUser ? (
+                    <LinearGradient
+                        colors={['#818cf8', '#6366f1']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.messageContent, styles.userContent]}
+                    >
                         <Text style={[styles.messageText, styles.userText]}>{msg.text}</Text>
-                    ) : (
+                    </LinearGradient>
+                ) : (
+                    <View style={[styles.messageContent, styles.aiContent]}>
                         <FormattedMessage content={msg.text} style={[styles.messageText, styles.aiText]} />
-                    )}
-                    {msg.isError && <Text style={styles.errorIndicator}> ⚠️</Text>}
-                </View>
+                        {msg.isError && <Text style={styles.errorIndicator}> ⚠️</Text>}
+                    </View>
+                )}
 
                 {/* Anime Recommendations */}
                 {msg.anime && msg.anime.length > 0 && (
                     <View style={styles.animeRecommendationsBox}>
-                        <View style={styles.animeCardsGrid}>
-                            {msg.anime.map((anime, idx) => (
-                                <View key={anime.id || idx} style={styles.animeCardWrapper}>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.animeCardsScroll}
+                        >
+                            {msg.anime.map((anime, idx) => anime && (
+                                <View key={anime.id || idx} style={styles.animeCardWrapperHorizontal}>
                                     <AnimatedAnimeCard
                                         item={anime}
                                         index={idx}
                                         onPress={handleAnimePress}
                                         cardStyle={{
                                             width: '100%',
-                                            height: undefined,
-                                            aspectRatio: 0.7,
+                                            height: '100%',
                                             marginBottom: 0
                                         }}
                                     />
                                 </View>
                             ))}
-                        </View>
-                    </View>
-                )}
-
-                {/* Follow-up Suggestions */}
-                {msg.suggestions && msg.suggestions.length > 0 && (
-                    <View style={styles.followupSuggestions}>
-                        <Text style={styles.suggestionsLabel}>Suggested:</Text>
-                        <View style={styles.suggestionsChips}>
-                            {msg.suggestions.map((suggestion, idx) => (
-                                <TouchableOpacity
-                                    key={idx}
-                                    style={styles.suggestionChip}
-                                    onPress={() => handlePromptClick(suggestion)}
-                                >
-                                    <Text style={styles.suggestionChipText}>{suggestion}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                        </ScrollView>
                     </View>
                 )}
             </View>
@@ -535,16 +469,25 @@ const AIScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            {/* Header */}
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Text style={styles.headerTitle}>🤖 OtakuAI</Text>
-                    <Text style={styles.headerSubtitle}>Powered by Mistral AI</Text>
+                <View style={styles.companionInfoWrapper}>
+                    <View style={styles.companionAvatar}>
+                        <Image source={otakuAI} style={styles.avatarImage} resizeMode="contain" />
+                    </View>
+                    <View style={styles.companionInfo}>
+                        <Text style={styles.headerTitle}>OtakuAI</Text>
+                        <View style={styles.companionStatus}>
+                            <View style={styles.statusDot} />
+                            <Text style={styles.statusText}>Ready to Binge</Text>
+                        </View>
+                    </View>
                 </View>
                 <TouchableOpacity
                     style={styles.clearButton}
                     onPress={handleClearChat}
                 >
-                    <Text style={styles.clearButtonText}>Clear Chat</Text>
+                    <Text style={styles.clearButtonText}>Clear History</Text>
                 </TouchableOpacity>
             </View>
 
@@ -553,29 +496,6 @@ const AIScreen = ({ navigation }) => {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
-                {/* Quick Prompts - Show only when no messages or just welcome */}
-                {messages.length <= 1 && (
-                    <View style={styles.quickPromptsBox}>
-                        <Text style={styles.promptsTitle}>Try asking:</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.promptsScroll}
-                        >
-                            {quickPrompts.map((prompt, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    onPress={() => handlePromptClick(prompt)}
-                                    style={styles.promptChip}
-                                    disabled={loading}
-                                >
-                                    <Text style={styles.promptChipText}>{prompt}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                )}
-
                 {/* Messages Container */}
                 <ScrollView
                     ref={scrollViewRef}
@@ -585,40 +505,32 @@ const AIScreen = ({ navigation }) => {
                     scrollEventThrottle={16}
                     showsVerticalScrollIndicator={false}
                 >
-                    {messages.length === 0 && (
-                        <View style={styles.welcomeMessage}>
-                            <Text style={styles.welcomeIcon}>🎬</Text>
-                            <Text style={styles.welcomeTitle}>Welcome to OtakuShell AI Companion!</Text>
-                            <Text style={styles.welcomeText}>
-                                Now powered by Mistral AI! I'll recommend perfect anime shows just for you!
-                            </Text>
-                            <View style={styles.companionFeatures}>
-                                <View style={styles.feature}>
-                                    <Text style={styles.featureIcon}>✨</Text>
-                                    <Text style={styles.featureText}>Smart recommendations</Text>
+                    {messages.map(renderMessage)}
+
+                    {streaming && (
+                        <View style={[styles.messageBubble, styles.aiBubble]}>
+                            <View style={styles.messageHeader}>
+                                <View style={styles.messageAvatar}>
+                                    <Image source={otakuAI} style={styles.avatarImage} resizeMode="contain" />
                                 </View>
-                                <View style={styles.feature}>
-                                    <Text style={styles.featureIcon}>🎯</Text>
-                                    <Text style={styles.featureText}>Based on your watch history</Text>
+                                <View style={styles.messageMeta}>
+                                    <Text style={styles.messageSender}>Otaku AI</Text>
                                 </View>
-                                <View style={styles.feature}>
-                                    <Text style={styles.featureIcon}>🤖</Text>
-                                    <Text style={styles.featureText}>Powered by Mistral AI</Text>
-                                </View>
+                            </View>
+                            <View style={[styles.messageContent, styles.aiContent]}>
+                                <FormattedMessage content={streamingText} style={[styles.messageText, styles.aiText]} />
                             </View>
                         </View>
                     )}
 
-                    {messages.map(renderMessage)}
-
-                    {loading && (
+                    {loading && !streaming && (
                         <View style={[styles.messageBubble, styles.aiBubble]}>
                             <View style={styles.messageHeader}>
-                                <View style={[styles.messageAvatar, styles.aiAvatar]}>
-                                    <Text style={styles.avatarText}>🤖</Text>
+                                <View style={styles.messageAvatar}>
+                                    <Image source={otakuAI} style={styles.avatarImage} resizeMode="contain" />
                                 </View>
                                 <View style={styles.messageMeta}>
-                                    <Text style={[styles.messageSender, styles.aiSender]}>Otaku AI</Text>
+                                    <Text style={styles.messageSender}>Otaku AI</Text>
                                     <Text style={styles.messageTime}>Typing...</Text>
                                 </View>
                             </View>
@@ -632,33 +544,54 @@ const AIScreen = ({ navigation }) => {
                         </View>
                     )}
 
-                    <View ref={messagesEndRef} style={{ height: 20 }} />
+                    <View style={{ height: 20 }} />
                 </ScrollView>
 
-                {/* Input Area */}
-                <View style={styles.inputWrapper}>
-                    <TextInput
-                        style={styles.messageInput}
-                        value={input}
-                        onChangeText={setInput}
-                        placeholder="Type your message here..."
-                        placeholderTextColor="#94a3b8"
-                        editable={!loading}
-                        multiline
-                        maxLength={500}
-                        onSubmitEditing={sendMessage}
-                    />
-                    <TouchableOpacity
-                        onPress={sendMessage}
-                        style={[styles.sendButton, (!input.trim() || loading) && styles.sendButtonDisabled]}
-                        disabled={loading || !input.trim()}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" size="small" />
-                        ) : (
-                            <Text style={styles.sendIcon}>➤</Text>
-                        )}
-                    </TouchableOpacity>
+                {/* Footer Suggestions & Input */}
+                <View style={styles.chatFooter}>
+                    {conversationContext.suggestions && conversationContext.suggestions.length > 0 && !loading && (
+                        <View style={styles.quickSuggestionsBox}>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.quickSuggestionsScroll}
+                            >
+                                {conversationContext.suggestions.map((suggestion, i) => (
+                                    <TouchableOpacity
+                                        key={i}
+                                        style={styles.suggestionChip}
+                                        onPress={() => handlePromptClick(suggestion)}
+                                    >
+                                        <Text style={styles.suggestionChipText}>{suggestion}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.messageInput}
+                            value={input}
+                            onChangeText={setInput}
+                            placeholder="Message OtakuAI..."
+                            placeholderTextColor="#94a3b8"
+                            editable={!loading}
+                            multiline
+                            maxLength={500}
+                        />
+                        <TouchableOpacity
+                            onPress={sendMessage}
+                            style={[styles.sendButton, (!input.trim() || loading) && styles.sendButtonDisabled]}
+                            disabled={loading || !input.trim()}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#000" size="small" />
+                            ) : (
+                                <Text style={[styles.sendIcon, (!input.trim() || loading) && styles.sendIconDisabled]}>➤</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </KeyboardAvoidingView>
 
@@ -680,70 +613,86 @@ const AIScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0f1e',
+        backgroundColor: '#050814',
     },
     header: {
-        paddingTop: 50,
+        paddingTop: Platform.OS === 'ios' ? 50 : 35,
         paddingBottom: 15,
         paddingHorizontal: 20,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
     },
-    headerLeft: {
-        flex: 1,
+    companionInfoWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    companionAvatar: {
+        width: 40,
+        height: 40,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 12,
+        padding: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+    },
+    companionInfo: {
+        justifyContent: 'center',
     },
     headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: 'OutfitRegular',
+        fontSize: 18,
+        fontWeight: '700',
         color: '#fff',
     },
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#999',
-        marginTop: 4,
+    companionStatus: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 2,
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        backgroundColor: '#10b981',
+        borderRadius: 3,
+        shadowColor: '#10b981',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+    },
+    statusText: {
+        fontSize: 11,
+        color: '#94a3b8',
+        fontWeight: '500',
+        fontFamily: 'OutfitRegular',
     },
     clearButton: {
-        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.3)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
     },
     clearButtonText: {
-        color: '#ef4444',
-        fontSize: 13,
+        color: '#94a3b8',
+        fontSize: 12,
         fontWeight: '600',
+        fontFamily: 'OutfitRegular',
     },
     keyboardAvoid: {
         flex: 1,
-    },
-    quickPromptsBox: {
-        padding: 15,
-    },
-    promptsTitle: {
-        marginBottom: 10,
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    promptsScroll: {
-        flexGrow: 0,
-    },
-    promptChip: {
-        backgroundColor: 'rgba(102, 126, 234, 0.2)',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        marginRight: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(102, 126, 234, 0.3)',
-    },
-    promptChipText: {
-        color: '#8cc8ff',
-        fontSize: 13,
-        fontWeight: '500',
     },
     messagesContainer: {
         flex: 1,
@@ -752,88 +701,49 @@ const styles = StyleSheet.create({
         padding: 15,
         paddingBottom: 5,
     },
-    welcomeMessage: {
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 15,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    welcomeIcon: {
-        fontSize: 60,
-        marginBottom: 15,
-    },
-    welcomeTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    welcomeText: {
-        color: '#999',
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 20,
-    },
-    companionFeatures: {
-        width: '100%',
-    },
-    feature: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 10,
-        marginBottom: 8,
-    },
-    featureIcon: {
-        fontSize: 20,
-        marginRight: 10,
-    },
-    featureText: {
-        color: '#fff',
-        fontSize: 14,
-    },
     messageBubble: {
         marginBottom: 20,
+        maxWidth: '82%',
     },
     userBubble: {
+        alignSelf: 'flex-end',
         alignItems: 'flex-end',
     },
     aiBubble: {
+        alignSelf: 'flex-start',
         alignItems: 'flex-start',
     },
     messageHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        gap: 10,
+        marginBottom: 6,
+    },
+    userMessageHeader: {
+        flexDirection: 'row-reverse',
     },
     messageAvatar: {
         width: 36,
         height: 36,
-        borderRadius: 18,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 8,
+        padding: 4,
     },
-    userAvatar: {
-        backgroundColor: '#667eea',
+    userInitialsContainer: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    aiAvatar: {
-        backgroundColor: '#10b981',
-    },
-    avatarImage: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-    },
-    avatarText: {
-        fontSize: 16,
+    userInitials: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 14,
+        fontFamily: 'OutfitRegular',
     },
     messageMeta: {
         flexDirection: 'row',
@@ -841,105 +751,131 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     messageSender: {
+        fontSize: 12,
         fontWeight: '600',
-        fontSize: 14,
-    },
-    userSender: {
-        color: '#667eea',
-    },
-    aiSender: {
-        color: '#10b981',
+        color: '#94a3b8',
+        fontFamily: 'OutfitRegular',
     },
     messageTime: {
-        color: '#94a3b8',
-        fontSize: 12,
+        fontSize: 10,
+        color: 'rgba(148, 163, 184, 0.5)',
+        fontFamily: 'OutfitRegular',
     },
     messageContent: {
-        maxWidth: '85%',
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 20,
     },
     userContent: {
-        backgroundColor: '#667eea',
         borderTopRightRadius: 4,
     },
     aiContent: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
         borderTopLeftRadius: 4,
     },
     messageText: {
         fontSize: 15,
         lineHeight: 22,
-        color: '#fff', // Default white color for all text
+        color: '#fff',
+        fontFamily: 'OutfitRegular',
     },
     userText: {
         color: '#fff',
     },
     aiText: {
-        color: '#fff', // Changed from #e2e8f0 to ensure visibility
+        color: '#fff',
+    },
+    codeInline: {
+        fontFamily: 'JetbrainsMono',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        color: '#f59e0b',
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        borderRadius: 4,
+        fontSize: 13,
     },
     errorIndicator: {
         color: '#ef4444',
-    },
-    followupSuggestions: {
-        marginTop: 10,
-        maxWidth: '85%',
-    },
-    suggestionsLabel: {
-        color: '#94a3b8',
-        fontSize: 12,
-        marginBottom: 6,
-    },
-    suggestionsChips: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 6,
-    },
-    suggestionChip: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 15,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    suggestionChipText: {
-        color: '#cbd5e1',
-        fontSize: 12,
+        marginTop: 4,
     },
     animeRecommendationsBox: {
-        marginTop: 15,
-        padding: 10, // Reduced padding to align with card spacing
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        marginTop: 12,
+        width: width * 0.82,
     },
-    recommendationsHeader: {
-        marginBottom: 12,
-        paddingHorizontal: 5, // Align header text with card content
+    animeCardsScroll: {
+        paddingRight: 20,
     },
-    recommendationsTitle: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
+    animeCardWrapperHorizontal: {
+        width: 135,
+        height: 195,
+        marginRight: 12,
     },
-    recommendationsSubtitle: {
-        color: '#94a3b8',
-        fontSize: 12,
+    chatFooter: {
+        paddingBottom: Platform.OS === 'ios' ? 10 : 15,
     },
-    animeCardsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginHorizontal: -5,
-        marginTop: 0, // Removed extra margin
-    },
-    animeCardWrapper: {
-        width: '50%',
-        paddingHorizontal: 5,
+    quickSuggestionsBox: {
         marginBottom: 10,
+        marginHorizontal: 16,
+    },
+    quickSuggestionsScroll: {
+        gap: 8,
+        paddingRight: 10,
+    },
+    suggestionChip: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    suggestionChipText: {
+        color: '#94a3b8',
+        fontSize: 13,
+        fontWeight: '500',
+        fontFamily: 'OutfitRegular',
+    },
+    inputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 24,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        marginHorizontal: 16,
+        marginBottom: 70,
+    },
+    messageInput: {
+        flex: 1,
+        color: '#fff',
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+        fontSize: 15,
+        fontFamily: 'OutfitRegular',
+        maxHeight: 120,
+    },
+    sendButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        backgroundColor: '#f59e0b',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sendButtonDisabled: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    sendIcon: {
+        color: '#000',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    sendIconDisabled: {
+        color: '#94a3b8',
     },
     typingIndicator: {
         flexDirection: 'row',
@@ -959,46 +895,57 @@ const styles = StyleSheet.create({
     typingDot3: {
         opacity: 0.4,
     },
-    inputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        gap: 10,
-        marginBottom: 70,
-    },
-    messageInput: {
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: 25,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        color: '#fff',
-        fontSize: 15,
-        maxHeight: 100,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#667eea',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#667eea',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-    sendButtonDisabled: {
-        opacity: 0.5,
-    },
-    sendIcon: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
 });
+
+export const useAnimePreferences = () => {
+  const { user } = useAuth();
+  
+  const preferences = user?.settings?.preferences || {
+    titleLanguage: 'romaji',
+    defaultLayout: 'grid',
+    nsfwContent: false,
+    autoplayTrailers: true,
+    accentColor: '#ff6b6b'
+  };
+
+  /**
+   * Returns the preferred title string for a given anime object.
+   * Expects title objects in Anilist schema: { romaji, english, native }
+   */
+  const getPreferredTitle = (titleObj) => {
+    if (!titleObj) return "Unknown Title";
+    if (typeof titleObj === 'string') return titleObj;
+
+    const { titleLanguage } = preferences;
+
+    if (titleLanguage === 'english' && titleObj.english) return titleObj.english;
+    if (titleLanguage === 'native' && titleObj.native) return titleObj.native;
+    
+    // Default to Romaji, or whichever is available as fallback
+    return titleObj.romaji || titleObj.english || titleObj.native || "Unknown Title";
+  };
+
+  /**
+   * Checks if a cover image should be blurred based on age restriction and user settings.
+   */
+  const shouldBlurNSFW = (isAdult) => {
+    if (!isAdult) return false;
+    return !preferences.nsfwContent;
+  };
+
+  /**
+   * Returns true if trailers should play automatically.
+   */
+  const shouldAutoplay = () => {
+    return preferences.autoplayTrailers;
+  };
+
+  return {
+    preferences,
+    getPreferredTitle,
+    shouldBlurNSFW,
+    shouldAutoplay
+  };
+};
 
 export default AIScreen;
