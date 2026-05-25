@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
+import { APP_VERSION, BUILD_DATE } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -870,8 +871,8 @@ export default function SettingsScreen({ navigation }) {
             <>
               {renderTabContent()}
               <View style={styles.versionFooter}>
-                <Text style={styles.versionText}>OtakuShelf v1.0.0</Text>
-                <Text style={styles.buildText}>Build 2026.05.25 • Stable</Text>
+                <Text style={styles.versionText}>OtakuShelf v{APP_VERSION}</Text>
+                <Text style={styles.buildText}>Build {BUILD_DATE} • Stable</Text>
               </View>
             </>
           )}

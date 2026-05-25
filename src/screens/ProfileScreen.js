@@ -25,6 +25,7 @@ import { Svg, G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import axios from 'axios';
 import AnimeModal from '../components/AnimeModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { APP_VERSION, BUILD_DATE } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -617,8 +618,8 @@ const ProfileScreen = ({ navigation }) => {
             </View>
           </View>
           <View style={styles.versionFooter}>
-            <Text style={styles.versionText}>OtakuShelf v1.0.0</Text>
-            <Text style={styles.buildText}>Build 2026.05.25 • Stable</Text>
+            <Text style={styles.versionText}>OtakuShelf v{APP_VERSION}</Text>
+            <Text style={styles.buildText}>Build {BUILD_DATE} • Stable</Text>
           </View>
           <View style={{ height: 130 }} />
         </View>

@@ -69,10 +69,16 @@ if (!isApiConfigured() && !__DEV__) {
     console.warn('[WARNING] API URL not configured! Please update PRODUCTION_API_URL in src/config/api.js');
 }
 
+// App Version Configuration
+export const APP_VERSION = '1.0.0';
+export const BUILD_DATE = '2026.05.25';
+
 export default {
     API_BASE_URL,
     API_ENDPOINTS,
     AXIOS_CONFIG,
     buildApiUrl,
     isApiConfigured,
+    APP_VERSION,
+    BUILD_DATE,
 };
