@@ -487,11 +487,12 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 24, color: '#fff', fontFamily: 'Prompt', letterSpacing: 1 },
   getStartedBtn: {
-    backgroundColor: '#ff6b6b', paddingHorizontal: 18, paddingVertical: 10,
-    borderRadius: 22, shadowColor: '#ff6b6b', shadowOffset: { width: 0, height: 3 },
+    backgroundColor: '#ffae00', paddingHorizontal: 18, paddingVertical: 10,
+    borderRadius: 22, shadowColor: '#ffae00', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.45, shadowRadius: 7, elevation: 6,
+    borderWidth: 1, borderColor: '#000000',
   },
-  getStartedText: { color: '#fff', fontWeight: '700', fontSize: 14, letterSpacing: 0.4 },
+  getStartedText: { color: '#000000', fontWeight: '800', fontSize: 14, letterSpacing: 0.4 },
 
   scroll: { flex: 1 },
 

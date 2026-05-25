@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  Keyboard,
 } from 'react-native';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -80,6 +81,7 @@ const SearchScreen = ({ navigation }) => {
   const [showFilters, setShowFilters] = useState(false);
   const filterAnim = useRef(new Animated.Value(0)).current;
   const searchTextRef = useRef(searchText);
+  const searchIdRef = useRef(0);
 
   useEffect(() => {
     searchTextRef.current = searchText;
@@ -207,6 +209,8 @@ const SearchScreen = ({ navigation }) => {
     // Prevent duplicate requests
     if (!isNewSearch && (searchLoading || isSearching)) return;
 
+    const myRequestId = ++searchIdRef.current;
+
     try {
       if (isNewSearch) {
         setIsSearching(true);
@@ -267,6 +271,10 @@ const SearchScreen = ({ navigation }) => {
         }
       );
 
+      if (myRequestId !== searchIdRef.current) {
+        return;
+      }
+
       const responseData = response.data.data.Page;
       const results = responseData.media.map(anime => ({
         id: anime.id,
@@ -302,10 +310,14 @@ const SearchScreen = ({ navigation }) => {
         setCurrentPage(page);
       }
     } catch (error) {
-      console.error('Search error:', error);
+      if (myRequestId === searchIdRef.current) {
+        console.error('Search error:', error);
+      }
     } finally {
-      setIsSearching(false);
-      setSearchLoading(false);
+      if (myRequestId === searchIdRef.current) {
+        setIsSearching(false);
+        setSearchLoading(false);
+      }
     }
   };
 
@@ -317,33 +329,24 @@ const SearchScreen = ({ navigation }) => {
     }).start();
   }, [showFilters, filterAnim]);
 
+  // Unified search trigger that debounces both search text and filter changes to prevent race conditions
   useEffect(() => {
     const trimmed = searchText.trim();
-    if (!trimmed) {
-      if (!hasActiveFilters) {
-        setSearchResults([]);
-      }
+    if (!trimmed && !hasActiveFilters) {
+      setSearchResults([]);
+      setTotalResults(0);
+      setHasMore(false);
+      setIsSearching(false);
+      setSearchLoading(false);
       return;
     }
 
     const timeout = setTimeout(() => {
       performSearch(1, true);
-    }, 200);
+    }, 300);
 
     return () => clearTimeout(timeout);
-  }, [searchText, hasActiveFilters]);
-
-  useEffect(() => {
-    const currentSearch = searchTextRef.current.trim();
-    if (!hasActiveFilters && !currentSearch) {
-      setSearchResults([]);
-      return;
-    }
-    // Only trigger if we have something to search for or active filters
-    // and if we aren't already searching to avoid race conditions
-    // performSearch handle concurrency internally now
-    performSearch(1, true);
-  }, [filters, hasActiveFilters]);
+  }, [searchText, filters, hasActiveFilters]);
 
   const loadMore = () => {
     if (!isSearching && !searchLoading && hasMore) {
@@ -362,6 +365,7 @@ const SearchScreen = ({ navigation }) => {
   };
 
   const clearFilters = () => {
+    Keyboard.dismiss();
     setFilters({
       type: [],
       status: DEFAULT_STATUS,
@@ -415,7 +419,10 @@ const SearchScreen = ({ navigation }) => {
         <View style={styles.filterRow}>
           <TouchableOpacity
             style={styles.filterToggleButton}
-            onPress={() => setShowFilters(!showFilters)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowFilters(!showFilters);
+            }}
             activeOpacity={0.8}
           >
             <View style={styles.filterToggleContent}>
@@ -468,164 +475,175 @@ const SearchScreen = ({ navigation }) => {
         ]}
       >
         <View style={styles.filtersCard}>
-          <Text style={styles.filterSectionTitle}>Type</Text>
           <ScrollView
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScrollContent}
+            style={{ maxHeight: 450 }}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
           >
-            {FILTER_OPTIONS.type.map(type => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.filterChip,
-                  filters.type.includes(type) && styles.filterChipActive
-                ]}
-                onPress={() => toggleFilter('type', type)}
-              >
-                <Text
+            <Text style={styles.filterSectionTitle}>Type</Text>
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
+              nestedScrollEnabled={true}
+            >
+              {FILTER_OPTIONS.type.map(type => (
+                <TouchableOpacity
+                  key={type}
                   style={[
-                    styles.filterChipText,
-                    filters.type.includes(type) && styles.filterChipTextActive
+                    styles.filterChip,
+                    filters.type.includes(type) && styles.filterChipActive
                   ]}
+                  onPress={() => toggleFilter('type', type)}
                 >
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      filters.type.includes(type) && styles.filterChipTextActive
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-          <Text style={styles.filterSectionTitle}>Status</Text>
-          <ScrollView
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScrollContent}
-          >
-            {FILTER_OPTIONS.status.map(status => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.filterChip,
-                  filters.status.includes(status) && styles.filterChipActive
-                ]}
-                onPress={() => toggleFilter('status', status)}
-              >
-                <Text
+            <Text style={styles.filterSectionTitle}>Status</Text>
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
+              nestedScrollEnabled={true}
+            >
+              {FILTER_OPTIONS.status.map(status => (
+                <TouchableOpacity
+                  key={status}
                   style={[
-                    styles.filterChipText,
-                    filters.status.includes(status) && styles.filterChipTextActive
+                    styles.filterChip,
+                    filters.status.includes(status) && styles.filterChipActive
                   ]}
+                  onPress={() => toggleFilter('status', status)}
                 >
-                  {status}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      filters.status.includes(status) && styles.filterChipTextActive
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-          <View style={styles.inlineRow}>
-            <View style={styles.inlineColumn}>
-              <Text style={styles.inlineLabel}>Score</Text>
-              <TextInput
-                style={styles.inputChip}
-                value={scoreInput}
-                onChangeText={(value) => {
-                  setScoreInput(value);
-                  if (value.trim() === '') {
+            <View style={styles.inlineRow}>
+              <View style={styles.inlineColumn}>
+                <Text style={styles.inlineLabel}>Score</Text>
+                <TextInput
+                  style={styles.inputChip}
+                  value={scoreInput}
+                  onChangeText={(value) => {
+                    setScoreInput(value);
+                    if (value.trim() === '') {
+                      setScoreError('');
+                      setFilters(prev => ({
+                        ...prev,
+                        minimumScore: 0,
+                      }));
+                      return;
+                    }
+                    const numeric = parseFloat(value);
+                    if (Number.isNaN(numeric) || numeric < 1 || numeric > 10) {
+                      setScoreError('Invalid score (1-10)');
+                      setFilters(prev => ({
+                        ...prev,
+                        minimumScore: 0,
+                      }));
+                      return;
+                    }
                     setScoreError('');
                     setFilters(prev => ({
                       ...prev,
-                      minimumScore: 0,
+                      minimumScore: numeric,
                     }));
-                    return;
-                  }
-                  const numeric = parseFloat(value);
-                  if (Number.isNaN(numeric) || numeric < 1 || numeric > 10) {
-                    setScoreError('Invalid score (1-10)');
-                    setFilters(prev => ({
-                      ...prev,
-                      minimumScore: 0,
-                    }));
-                    return;
-                  }
-                  setScoreError('');
-                  setFilters(prev => ({
-                    ...prev,
-                    minimumScore: numeric,
-                  }));
-                }}
-                keyboardType="numeric"
-                placeholder="1 - 10"
-                placeholderTextColor="#666"
-              />
-              {!!scoreError && (
-                <Text style={styles.inputErrorText}>{scoreError}</Text>
-              )}
+                  }}
+                  keyboardType="numeric"
+                  placeholder="1 - 10"
+                  placeholderTextColor="#666"
+                />
+                {!!scoreError && (
+                  <Text style={styles.inputErrorText}>{scoreError}</Text>
+                )}
+              </View>
+              <View style={styles.inlineColumn}>
+                <Text style={styles.inlineLabel}>Year</Text>
+                <TextInput
+                  style={styles.inputChip}
+                  value={filters.seasonYear}
+                  onChangeText={(value) => setFilters(prev => ({ ...prev, seasonYear: value }))}
+                  keyboardType="numeric"
+                  placeholder="e.g. 2024"
+                  placeholderTextColor="#666"
+                />
+              </View>
             </View>
-            <View style={styles.inlineColumn}>
-              <Text style={styles.inlineLabel}>Year</Text>
-              <TextInput
-                style={styles.inputChip}
-                value={filters.seasonYear}
-                onChangeText={(value) => setFilters(prev => ({ ...prev, seasonYear: value }))}
-                keyboardType="numeric"
-                placeholder="e.g. 2024"
-                placeholderTextColor="#666"
-              />
-            </View>
-          </View>
 
-          <Text style={styles.filterSectionTitle}>Season</Text>
-          <ScrollView
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScrollContent}
-          >
-            {ANIME_SEASONS.map(season => (
-              <TouchableOpacity
-                key={season}
-                style={[
-                  styles.filterChip,
-                  filters.season === season && styles.filterChipActive
-                ]}
-                onPress={() => toggleSingleFilter('season', season)}
-              >
-                <Text
+            <Text style={styles.filterSectionTitle}>Season</Text>
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
+              nestedScrollEnabled={true}
+            >
+              {ANIME_SEASONS.map(season => (
+                <TouchableOpacity
+                  key={season}
                   style={[
-                    styles.filterChipText,
-                    filters.season === season && styles.filterChipTextActive
+                    styles.filterChip,
+                    filters.season === season && styles.filterChipActive
                   ]}
+                  onPress={() => toggleSingleFilter('season', season)}
                 >
-                  {season}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      filters.season === season && styles.filterChipTextActive
+                    ]}
+                  >
+                    {season}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
-          <Text style={styles.filterSectionTitle}>Genres</Text>
-          <ScrollView
-            horizontal={true}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScrollContent}
-          >
-            {ANIME_GENRES.map(genre => (
-              <TouchableOpacity
-                key={genre}
-                style={[
-                  styles.filterChip,
-                  filters.genres.includes(genre) && styles.filterChipActive
-                ]}
-                onPress={() => toggleFilter('genres', genre)}
-              >
-                <Text
+            <Text style={styles.filterSectionTitle}>Genres</Text>
+            <ScrollView
+              horizontal={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
+              nestedScrollEnabled={true}
+            >
+              {ANIME_GENRES.map(genre => (
+                <TouchableOpacity
+                  key={genre}
                   style={[
-                    styles.filterChipText,
-                    filters.genres.includes(genre) && styles.filterChipTextActive
+                    styles.filterChip,
+                    filters.genres.includes(genre) && styles.filterChipActive
                   ]}
+                  onPress={() => toggleFilter('genres', genre)}
                 >
-                  {genre}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      filters.genres.includes(genre) && styles.filterChipTextActive
+                    ]}
+                  >
+                    {genre}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </ScrollView>
         </View>
       </Animated.View>
@@ -633,7 +651,7 @@ const SearchScreen = ({ navigation }) => {
       {/* Results */}
       {isSearching && searchResults.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ff5900" style={{ transform: [{ scale: 1.5 }] }} />
+          <ActivityIndicator size="large" color="#ffae00" style={{ transform: [{ scale: 1.5 }] }} />
         </View>
       ) : (
         <FlatList
@@ -646,6 +664,12 @@ const SearchScreen = ({ navigation }) => {
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={true}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => {
+            Keyboard.dismiss();
+            setShowFilters(false);
+          }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               {searchText || hasActiveFilters ? (
@@ -664,7 +688,7 @@ const SearchScreen = ({ navigation }) => {
           ListFooterComponent={
             searchLoading ? (
               <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                <ActivityIndicator size="small" color="#ff5900" />
+                <ActivityIndicator size="small" color="#ffae00" />
               </View>
             ) : null
           }
@@ -746,7 +770,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterToggleIcon: {
-    color: '#ffb36b',
+    color: '#ffae00',
     fontSize: 16,
     marginRight: 8,
   },
@@ -760,25 +784,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#ff5900',
+    backgroundColor: '#ffae00',
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterToggleBadgeText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   clearInlineButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 89, 0, 0.18)',
+    backgroundColor: 'rgba(255, 174, 0, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 89, 0, 0.4)',
+    borderColor: 'rgba(255, 174, 0, 0.35)',
   },
   clearInlineText: {
-    color: '#ffb36b',
+    color: '#ffae00',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -846,15 +870,15 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   filterChipActive: {
-    backgroundColor: '#ff5900',
+    backgroundColor: '#ffae00',
   },
   filterChipText: {
     color: '#999',
     fontSize: 14,
   },
   filterChipTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#000000',
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 20,
