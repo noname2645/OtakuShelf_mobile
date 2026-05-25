@@ -25,7 +25,6 @@ export const AuthProvider = ({ children }) => {
     if (!userData) return null;
     const normUser = { ...userData };
 
-<<<<<<< HEAD
     // Ensure both id and _id are set
     const id = normUser._id || normUser.id;
     if (id) {
@@ -33,8 +32,6 @@ export const AuthProvider = ({ children }) => {
       normUser.id = id;
     }
 
-=======
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
     // Fix photo URL if relative
     if (normUser.photo && !normUser.photo.startsWith('http') && !normUser.photo.startsWith('data:')) {
       const separator = API.endsWith('/') ? '' : '/';
@@ -53,12 +50,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       const minimalData = {
-<<<<<<< HEAD
         id: userData._id || userData.id,
         _id: userData._id || userData.id,
-=======
-        id: userData._id,
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
         email: userData.email,
         name: userData.name || userData.email?.split('@')[0] || 'User',
         photo: safePhoto
@@ -67,11 +60,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem("user", JSON.stringify(minimalData));
     } catch (error) {
       console.error('Storage error:', error);
-<<<<<<< HEAD
       await AsyncStorage.setItem("user_id", userData._id || userData.id);
-=======
-      await AsyncStorage.setItem("user_id", userData._id);
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
     }
   }, []);
 
@@ -117,11 +106,7 @@ export const AuthProvider = ({ children }) => {
         timeout: 8000
       });
 
-<<<<<<< HEAD
       return response.data?.data || response.data;
-=======
-      return response.data;
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
     } catch (error) {
       console.error('Profile fetch error:', error);
       return null;
@@ -136,11 +121,7 @@ export const AuthProvider = ({ children }) => {
         const storedUser = await loadFromStorage();
         if (storedUser) {
           setUser(normalizeUser(storedUser));
-<<<<<<< HEAD
           fetchFreshProfile(storedUser._id || storedUser.id)
-=======
-          fetchFreshProfile(storedUser.id)
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
             .then(setProfile)
             .catch(() => console.log('Offline mode: using stored user only'));
         }
@@ -154,24 +135,15 @@ export const AuthProvider = ({ children }) => {
         timeout: 8000 // Increased timeout for slow backends
       });
 
-<<<<<<< HEAD
       const rawUser = response.data?.data?.user || response.data?.user;
 
       if (rawUser) {
         const userData = normalizeUser(rawUser);
-=======
-      if (response.data.user) {
-        const userData = normalizeUser(response.data.user);
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
         setUser(userData);
         await storeMinimalUser(userData);
 
         // Fetch profile in background - don't block on it
-<<<<<<< HEAD
         fetchFreshProfile(userData._id || userData.id)
-=======
-        fetchFreshProfile(userData._id)
->>>>>>> 2aff8f1a36e7a7de8421b727771f05100bc025ad
           .then(setProfile)
           .catch(() => console.log('Profile fetch failed, continuing anyway'));
       } else {
