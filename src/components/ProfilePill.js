@@ -103,7 +103,10 @@ const ProfilePill = ({ user, logout, navigation }) => {
 
                                 <TouchableOpacity
                                     style={localStyles.dropdownItem}
-                                    onPress={() => setShowDropdown(false)}
+                                    onPress={() => {
+                                        setShowDropdown(false);
+                                        navigation.navigate('Settings');
+                                    }}
                                 >
                                     <Ionicons name="settings-outline" size={18} color="#aaa" />
                                     <Text style={localStyles.dropdownItemText}>Settings</Text>
@@ -119,8 +122,8 @@ const ProfilePill = ({ user, logout, navigation }) => {
                                         await logout();
                                     }}
                                 >
-                                    <Ionicons name="log-out-outline" size={18} color="#ff5900" />
-                                    <Text style={[localStyles.dropdownItemText, { color: '#ff5900' }]}>Logout</Text>
+                                    <Ionicons name="log-out-outline" size={18} color="#ff6b6b" />
+                                    <Text style={[localStyles.dropdownItemText, { color: '#ff6b6b' }]}>Logout</Text>
                                 </TouchableOpacity>
                             </View>
                         </TouchableWithoutFeedback>

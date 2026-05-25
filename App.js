@@ -12,6 +12,7 @@ import ListScreen from './src/screens/ListScreen';
 import SearchScreen from './src/screens/SearchScreen';
 import AIScreen from './src/screens/AIScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -65,6 +66,7 @@ const [fontsLoaded] = useFonts({
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="AI" component={AIScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </AuthProvider>
