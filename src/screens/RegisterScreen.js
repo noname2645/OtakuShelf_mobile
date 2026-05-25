@@ -170,12 +170,12 @@ const RegisterScreen = ({ navigation }) => {
     try {
       // Step 1: Register
       await axios.post(`${API}/auth/register`, { email: email.trim(), password }, {
-        withCredentials: true, timeout: 15000,
+        withCredentials: true, timeout: 60000,
       });
 
       // Step 2: Auto-login
       const loginRes = await axios.post(`${API}/auth/login`, { email: email.trim(), password }, {
-        withCredentials: true, timeout: 15000,
+        withCredentials: true, timeout: 60000,
       });
 
       const userData = loginRes.data?.data?.user || loginRes.data?.user;

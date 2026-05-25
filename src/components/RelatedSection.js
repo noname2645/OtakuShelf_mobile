@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#ff6a00',
-    fontFamily: 'Outfit',
+    fontFamily: 'OutfitRegular',
     fontWeight: '600',
     letterSpacing: 1,
     fontSize: isMobile ? 14 : 16,

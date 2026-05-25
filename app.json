@@ -4,7 +4,7 @@
     "slug": "otakushelf-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/otakushelf_app_icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/otakushelf_app_icon.png",
         "backgroundColor": "#0a0f1e"
       },
       "package": "com.otakushelf.mobile"

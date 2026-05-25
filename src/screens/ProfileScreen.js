@@ -616,6 +616,10 @@ const ProfileScreen = ({ navigation }) => {
               ))}
             </View>
           </View>
+          <View style={styles.versionFooter}>
+            <Text style={styles.versionText}>OtakuShelf v1.0.0</Text>
+            <Text style={styles.buildText}>Build 2026.05.25 • Stable</Text>
+          </View>
           <View style={{ height: 130 }} />
         </View>
       </ScrollView>
@@ -698,7 +702,30 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: 16, borderRadius: 12, alignItems: 'center' },
 
   emptyState: { padding: 30, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, alignItems: 'center', marginBottom: 30 },
-  emptyText: { color: 'rgba(255,255,255,0.5)' }
+  emptyText: { color: 'rgba(255,255,255,0.5)' },
+  versionFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 40,
+    marginBottom: 20,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  versionText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'OutfitRegular',
+    letterSpacing: 0.8,
+  },
+  buildText: {
+    color: 'rgba(255, 255, 255, 0.25)',
+    fontSize: 10,
+    marginTop: 4,
+    fontFamily: 'JosefinSans',
+    letterSpacing: 0.5,
+  }
 });
 
 export default ProfileScreen;

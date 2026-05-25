@@ -69,7 +69,7 @@ const GoogleAuthBrowser = ({ navigation }) => {
             // Check if user is now authenticated
             const response = await axios.get(`${API}/auth/me`, {
                 withCredentials: true,
-                timeout: 10000
+                timeout: 60000
             });
 
             const userData = response.data?.data?.user || response.data?.user;

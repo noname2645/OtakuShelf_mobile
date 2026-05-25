@@ -147,7 +147,7 @@ const LoginScreen = ({ navigation }) => {
 
       const res = await axios.post(`${API}/auth/login`, payload, {
         withCredentials: true,
-        timeout: 15000,
+        timeout: 60000,
       });
 
       // MFA required step

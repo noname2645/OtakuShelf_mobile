@@ -348,7 +348,7 @@ const HomeScreen = ({ navigation }) => {
 
     // 2. Fetch from network
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/anime/anime-sections`, { timeout: 15000 });
+      const res = await axios.get(`${API_BASE_URL}/api/anime/anime-sections`, { timeout: 60000 });
       const data = res.data?.data || res.data || {};
       setSections(applyNormalized(data));
       setLoading(false);

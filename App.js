@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, Text, TextInput } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -15,6 +15,63 @@ import SearchScreen from './src/screens/SearchScreen';
 import AIScreen from './src/screens/AIScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+
+// Patch Text and TextInput to default to Outfit font family
+try {
+  const defaultFont = { fontFamily: 'OutfitRegular' };
+
+  if (Text.render) {
+    const oldTextRender = Text.render;
+    Text.render = function (...args) {
+      const origin = oldTextRender.call(this, ...args);
+      if (React.isValidElement(origin)) {
+        return React.cloneElement(origin, {
+          style: [defaultFont, origin.props.style],
+        });
+      }
+      return origin;
+    };
+  } else {
+    if (Text.defaultProps === undefined) {
+      try {
+        Text.defaultProps = {};
+      } catch (_) {}
+    }
+    if (Text.defaultProps) {
+      Text.defaultProps.style = { ...defaultFont, ...Text.defaultProps.style };
+    }
+  }
+} catch (e) {
+  console.warn("Failed to patch Text default style:", e);
+}
+
+try {
+  const defaultFont = { fontFamily: 'OutfitRegular' };
+
+  if (TextInput.render) {
+    const oldTextInputRender = TextInput.render;
+    TextInput.render = function (...args) {
+      const origin = oldTextInputRender.call(this, ...args);
+      if (React.isValidElement(origin)) {
+        return React.cloneElement(origin, {
+          style: [defaultFont, origin.props.style],
+        });
+      }
+      return origin;
+    };
+  } else {
+    if (TextInput.defaultProps === undefined) {
+      try {
+        TextInput.defaultProps = {};
+      } catch (_) {}
+    }
+    if (TextInput.defaultProps) {
+      TextInput.defaultProps.style = { ...defaultFont, ...TextInput.defaultProps.style };
+    }
+  }
+} catch (e) {
+  console.warn("Failed to patch TextInput default style:", e);
+}
 
 const Stack = createNativeStackNavigator();
 

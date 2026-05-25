@@ -121,7 +121,7 @@ export const AuthProvider = ({ children }) => {
         const token = await AsyncStorage.getItem("token");
         const response = await axios.get(`${API}/api/profile/${userId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-          timeout: 8000,
+          timeout: 60000,
         });
 
         return response.data?.data || response.data;
@@ -152,7 +152,7 @@ export const AuthProvider = ({ children }) => {
       // Try to verify token with backend
       const response = await axios.get(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 8000, // Increased timeout for slow backends
+        timeout: 60000, // Increased timeout for slow backends
       });
 
       const rawUser = response.data?.data?.user || response.data?.user;
@@ -241,7 +241,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(async () => {
     try {
-      await axios.get(`${API}/auth/logout`, { timeout: 3000 });
+      await axios.get(`${API}/auth/logout`, { timeout: 10000 });
     } catch (error) {
       console.log("Server logout failed, clearing local data");
     } finally {
@@ -273,7 +273,7 @@ export const AuthProvider = ({ children }) => {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-            timeout: 10000,
+            timeout: 60000,
           },
         );
 

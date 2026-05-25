@@ -67,7 +67,7 @@ const GoogleAuthScreen = ({ navigation }) => {
                     console.log('🔍 Verifying token with backend...');
                     const response = await axios.get(`${API}/auth/me`, {
                         headers: { Authorization: `Bearer ${token}` },
-                        timeout: 10000
+                        timeout: 60000
                     });
 
                     const userData = response.data?.data?.user || response.data?.user;

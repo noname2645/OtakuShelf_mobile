@@ -46,7 +46,7 @@ export const API_ENDPOINTS = {
 
 // Axios configuration
 export const AXIOS_CONFIG = {
-    timeout: 15000, // 15 seconds
+    timeout: 60000, // 60 seconds (accommodates Render.com cold starts)
     headers: {
         'Content-Type': 'application/json',
     },
