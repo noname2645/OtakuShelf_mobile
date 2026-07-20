@@ -14,6 +14,7 @@ import {
   SectionList,
   TextInput,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -292,6 +293,12 @@ const ListScreen = () => {
   const [selectedAnime, setSelectedAnime] = useState(null);
 
   const wsRef = useRef(null);
+  const scrollYList = useRef(new Animated.Value(0)).current;
+  const headerBgOpacityList = scrollYList.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   // ── WebSocket ──
   useEffect(() => {
@@ -640,6 +647,11 @@ const ListScreen = () => {
 
   return (
     <View style={s.root}>
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[s.scrollFade, { opacity: headerBgOpacityList }]} pointerEvents="none">
+        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+
       {/* ── Header ── */}
       <View style={s.header}>
         <View>
@@ -696,7 +708,7 @@ const ListScreen = () => {
           </TouchableOpacity>
         </View>
       ) : (
-        <SectionList
+        <Animated.SectionList
           style={s.list}
           sections={sections}
           keyExtractor={(item, idx) => (item[0]?._id || item[0]?.animeId || idx).toString()}
@@ -704,6 +716,10 @@ const ListScreen = () => {
           renderSectionHeader={renderSectionHeader}
           contentContainerStyle={s.listContent}
           stickySectionHeadersEnabled={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollYList } } }],
+            { useNativeDriver: true }
+          )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff5900" colors={['#ff5900']} />}
           ListEmptyComponent={
             <View style={s.emptyState}>
@@ -851,6 +867,10 @@ const AddAnimeModal = ({ visible, onClose, query, onSearch, results, loading, on
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#030712', paddingTop: Platform.OS === 'ios' ? 56 : 36 },
+  scrollFade: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: 170, zIndex: 25,
+  },
 
   // Header
   header: {

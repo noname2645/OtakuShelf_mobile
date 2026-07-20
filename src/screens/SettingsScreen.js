@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  Animated,
   TouchableOpacity,
   TextInput,
   Switch,
@@ -87,6 +88,12 @@ export default function SettingsScreen({ navigation }) {
   const [actionLoading, setActionLoading] = useState(false);
 
   const userId = user?._id || user?.id;
+  const scrollYSettings = useRef(new Animated.Value(0)).current;
+  const headerBgOpacitySettings = scrollYSettings.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   // Show toast
   const showToast = (message, type = 'success') => {
@@ -806,6 +813,11 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacitySettings }]} pointerEvents="none">
+        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+
       {/* Toast Alert */}
       {toast.show && (
         <View style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]}>
@@ -864,6 +876,11 @@ export default function SettingsScreen({ navigation }) {
           style={styles.content}
           contentContainerStyle={{ paddingBottom: 100 }}
           keyboardShouldPersistTaps="handled"
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollYSettings } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
         >
           {loading ? (
             <ActivityIndicator size="large" color="#ff6b6b" style={{ marginTop: 40 }} />
@@ -1018,6 +1035,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0f1e',
+  },
+  scrollFade: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: 170, zIndex: 25,
   },
   header: {
     height: Platform.OS === 'ios' ? 90 : 70,

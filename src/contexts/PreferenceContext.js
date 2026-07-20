@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PreferenceContext = createContext();
@@ -57,25 +57,31 @@ export const PreferenceProvider = ({ children }) => {
   const toggleFavorite = useCallback((id) => {
     setFavorites(prev => {
       const next = { ...prev };
+      const becomingFav = !next[id];
       if (next[id]) delete next[id];
       else next[id] = true;
+      pendingWrites.current[`${FAV_PREFIX}${id}`] = JSON.stringify(becomingFav);
       return next;
     });
-    pendingWrites.current[`${FAV_PREFIX}${id}`] = JSON.stringify(!favorites[id]);
-  }, [favorites]);
+  }, []);
 
   const toggleWatchlist = useCallback((id) => {
     setWatchlist(prev => {
       const next = { ...prev };
+      const becomingWl = !next[id];
       if (next[id]) delete next[id];
       else next[id] = true;
+      pendingWrites.current[`${WL_PREFIX}${id}`] = JSON.stringify(becomingWl);
       return next;
     });
-    pendingWrites.current[`${WL_PREFIX}${id}`] = JSON.stringify(!watchlist[id]);
-  }, [watchlist]);
+  }, []);
+
+  const value = useMemo(() => ({
+    isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded,
+  }), [isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded]);
 
   return (
-    <PreferenceContext.Provider value={{ isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded }}>
+    <PreferenceContext.Provider value={value}>
       {children}
     </PreferenceContext.Provider>
   );

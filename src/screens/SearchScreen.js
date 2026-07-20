@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
   ScrollView,
   TouchableOpacity,
-  FlatList,
-  Image,
   StyleSheet,
   ActivityIndicator,
   Animated,
   Keyboard,
 } from 'react-native';
 import axios from 'axios';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import AnimeModal from '../components/AnimeModal';
 import BottomNav from '../components/BottomNav';
 import AnimeCardPremium from '../components/AnimeCardPremium';
+
 
 
 
@@ -55,13 +55,11 @@ const SearchScreen = ({ navigation }) => {
   const { API } = useAuth();
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [selectedAnime, setSelectedAnime] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [totalResults, setTotalResults] = useState(0);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const allIdsRef = useRef(new Set());
 
   // Filters
   const [filters, setFilters] = useState({
@@ -202,121 +200,50 @@ const SearchScreen = ({ navigation }) => {
     }
   `;
 
-  const performSearch = async (page = 1, isNewSearch = false) => {
-    // Prevent duplicate requests
-    if (!isNewSearch && (searchLoading || isSearching)) return;
+  const doFetch = async (page, requestId) => {
+    const variables = { page, perPage: 50 };
+    const query = searchTextRef.current.trim();
+    if (query) variables.search = query;
+    if (filters.type.length > 0) variables.format_in = filters.type;
+    if (filters.status.length > 0) {
+      variables.status_in = filters.status.map(s => s === 'TBA' ? 'NOT_YET_RELEASED' : s);
+    }
+    if (filters.minimumScore > 0) variables.averageScore_greater = Math.floor(filters.minimumScore * 10);
+    if (filters.genres.length > 0) variables.genre_in = filters.genres;
+    if (filters.season) variables.season = filters.season;
+    if (filters.seasonYear && filters.seasonYear.trim() !== "") {
+      const yr = parseInt(filters.seasonYear, 10);
+      if (!Number.isNaN(yr) && yr > 1900) variables.seasonYear = yr;
+    }
 
-    const myRequestId = ++searchIdRef.current;
-
-    try {
-      if (isNewSearch) {
-        setIsSearching(true);
-        setSearchResults([]);
-      } else {
-        setSearchLoading(true);
-      }
-
-      const variables = {
-        page,
-        perPage: 50
-      };
-
-      if (searchText.trim()) {
-        variables.search = searchText.trim();
-      }
-
-      if (filters.type.length > 0) {
-        variables.format_in = filters.type;
-      }
-
-      if (filters.status.length > 0) {
-        variables.status_in = filters.status.map(status =>
-          status === 'TBA' ? 'NOT_YET_RELEASED' : status
-        );
-      }
-
-      if (filters.minimumScore > 0) {
-        variables.averageScore_greater = Math.floor(filters.minimumScore * 10);
-      }
-
-      if (filters.genres.length > 0) {
-        variables.genre_in = filters.genres;
-      }
-
-      if (filters.season) {
-        variables.season = filters.season;
-      }
-
-      if (filters.seasonYear && filters.seasonYear.trim() !== "") {
-        const year = parseInt(filters.seasonYear, 10);
-        if (!Number.isNaN(year) && year > 1900) {
-          variables.seasonYear = year;
+    let res;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await axios.post('https://graphql.anilist.co', { query: ANIME_SEARCH_QUERY, variables }, {
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+        });
+        break;
+      } catch (e) {
+        if (e?.response?.status === 429 && attempt < 2) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
         }
-      }
-
-      const response = await axios.post(
-        'https://graphql.anilist.co',
-        {
-          query: ANIME_SEARCH_QUERY,
-          variables
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        }
-      );
-
-      if (myRequestId !== searchIdRef.current) {
-        return;
-      }
-
-      const responseData = response.data.data.Page;
-      const results = responseData.media.map(anime => ({
-        id: anime.id,
-        idMal: anime.idMal,
-        title: anime.title?.english || anime.title?.romaji || anime.title?.native || "Unknown",
-        coverImage: {
-          large: anime.coverImage?.large,
-          extraLarge: anime.coverImage?.extraLarge,
-          medium: anime.coverImage?.medium
-        },
-        bannerImage: anime.bannerImage,
-        startDate: anime.startDate,
-        endDate: anime.endDate,
-        year: anime.startDate?.year,
-        description: anime.description,
-        episodes: anime.episodes,
-        format: anime.format,
-        status: anime.status,
-        genres: anime.genres,
-        averageScore: anime.averageScore,
-        trailer: anime.trailer,
-        studios: anime.studios,
-        relations: anime.relations,
-      }));
-
-      setHasMore(responseData.pageInfo.hasNextPage);
-      setTotalResults(responseData.pageInfo.total);
-
-      if (isNewSearch) {
-        setSearchResults(results);
-        setCurrentPage(1);
-      } else {
-        setSearchResults(prev => [...prev, ...results]);
-        setCurrentPage(page);
-      }
-    } catch (error) {
-      if (myRequestId === searchIdRef.current) {
-        console.error('Search error:', error);
-      }
-    } finally {
-      if (myRequestId === searchIdRef.current) {
-        setIsSearching(false);
-        setSearchLoading(false);
+        throw e;
       }
     }
+    if (requestId !== searchIdRef.current) return null;
+
+    const d = res.data.data.Page;
+    const items = d.media.map(a => ({
+      id: a.id, idMal: a.idMal,
+      title: a.title?.english || a.title?.romaji || a.title?.native || "Unknown",
+      coverImage: { large: a.coverImage?.large, extraLarge: a.coverImage?.extraLarge, medium: a.coverImage?.medium },
+      bannerImage: a.bannerImage, startDate: a.startDate, endDate: a.endDate,
+      year: a.startDate?.year, description: a.description, episodes: a.episodes,
+      format: a.format, status: a.status, genres: a.genres,
+      averageScore: a.averageScore, trailer: a.trailer, studios: a.studios, relations: a.relations,
+    }));
+    return { items, hasNext: d.pageInfo.hasNextPage, total: d.pageInfo.total, page };
   };
 
   useEffect(() => {
@@ -327,30 +254,42 @@ const SearchScreen = ({ navigation }) => {
     }).start();
   }, [showFilters, filterAnim]);
 
-  // Unified search trigger that debounces both search text and filter changes to prevent race conditions
   useEffect(() => {
-    const trimmed = searchText.trim();
-    if (!trimmed && !hasActiveFilters) {
+    const timeout = setTimeout(async () => {
+      const myRequestId = ++searchIdRef.current;
       setSearchResults([]);
-      setTotalResults(0);
-      setHasMore(false);
-      setIsSearching(false);
-      setSearchLoading(false);
-      return;
-    }
+      setSearchLoading(true);
 
-    const timeout = setTimeout(() => {
-      performSearch(1, true);
-    }, 300);
+      const [r1, r2, r3] = await Promise.all([
+        doFetch(1, myRequestId),
+        doFetch(2, myRequestId),
+        doFetch(3, myRequestId),
+      ]);
+
+      if (myRequestId !== searchIdRef.current) return;
+
+      const seen = new Set();
+      const merged = [];
+      for (const r of [r1, r2, r3]) {
+        if (!r) continue;
+        for (const item of r.items) {
+          if (!seen.has(item.id)) { seen.add(item.id); merged.push(item); }
+        }
+      }
+
+      setSearchResults(merged);
+      setSearchLoading(false);
+    }, 100);
 
     return () => clearTimeout(timeout);
-  }, [searchText, filters, hasActiveFilters]);
+  }, [searchText, filters]);
 
-  const loadMore = () => {
-    if (!isSearching && !searchLoading && hasMore) {
-      performSearch(currentPage + 1, false);
-    }
-  };
+  const scrollYSearch = useRef(new Animated.Value(0)).current;
+  const headerBgOpacitySearch = scrollYSearch.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   const toggleFilter = (filterType, value) => {
     setFilters(prev => {
@@ -384,26 +323,36 @@ const SearchScreen = ({ navigation }) => {
     }));
   };
 
-  const renderAnimeCard = ({ item, index }) => {
+  const openModal = useCallback((anime) => {
+    setSelectedAnime(anime);
+    setModalVisible(true);
+  }, []);
+
+  const renderAnimeCard = useCallback(({ item, index }) => {
     return (
       <AnimeCardPremium
         anime={item}
         index={index}
         isGrid
-        onPress={(anime) => {
-          setSelectedAnime(anime);
-          setModalVisible(true);
-        }}
+        onPress={openModal}
       />
     );
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
-      {/* Header - Same background as container */}
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacitySearch }]} pointerEvents="none">
+        <LinearGradient
+          colors={['#030712', 'transparent']}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+
+      {/* Header */}
       <View style={styles.header}>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
+        {/* Search Bar + Filters combined pill */}
+        <View style={styles.searchPill}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
@@ -412,41 +361,29 @@ const SearchScreen = ({ navigation }) => {
             value={searchText}
             onChangeText={setSearchText}
           />
-        </View>
-
-        {/* Filter Toggle */}
-        <View style={styles.filterRow}>
           <TouchableOpacity
-            style={styles.filterToggleButton}
+            style={[styles.pillFilterBtn, showFilters && styles.pillFilterBtnActive]}
             onPress={() => {
               Keyboard.dismiss();
               setShowFilters(!showFilters);
             }}
             activeOpacity={0.8}
           >
-            <View style={styles.filterToggleContent}>
-              <Text style={styles.filterToggleIcon}>{showFilters ? '▾' : '▸'}</Text>
-              <Text style={styles.filterToggleText}>
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
-              </Text>
-            </View>
+            <Text style={styles.pillFilterText}>{showFilters ? '▾' : '▸'} Filters</Text>
             {activeFilterCount > 0 && (
-              <View style={styles.filterToggleBadge}>
-                <Text style={styles.filterToggleBadgeText}>{activeFilterCount}</Text>
+              <View style={styles.pillBadge}>
+                <Text style={styles.pillBadgeText}>{activeFilterCount}</Text>
               </View>
             )}
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.clearInlineButton}
+            style={styles.pillClearBtn}
             onPress={clearFilters}
             activeOpacity={0.8}
           >
-            <Text style={styles.clearInlineText}>Clear</Text>
+            <Text style={styles.pillClearText}>✕</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Gradient fade at bottom of header */}
-
       </View>
 
       {/* Filters */}
@@ -648,23 +585,27 @@ const SearchScreen = ({ navigation }) => {
       </Animated.View>
 
       {/* Results */}
-      {isSearching && searchResults.length === 0 ? (
+      {searchLoading && searchResults.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#ffae00" style={{ transform: [{ scale: 1.5 }] }} />
         </View>
       ) : (
-        <FlatList
+      <Animated.FlatList
           data={searchResults}
           renderItem={renderAnimeCard}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           numColumns={2}
           contentContainerStyle={styles.listContent}
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          windowSize={5}
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={3}
           removeClippedSubviews={true}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollYSearch } } }],
+            { useNativeDriver: true }
+          )}
           onScrollBeginDrag={() => {
             Keyboard.dismiss();
             setShowFilters(false);
@@ -681,16 +622,7 @@ const SearchScreen = ({ navigation }) => {
               )}
             </View>
           }
-          onEndReached={loadMore}
-          onEndReachedThreshold={2}
           columnWrapperStyle={{ gap: 14 }}
-          ListFooterComponent={
-            searchLoading ? (
-              <View style={{ alignItems: 'center', marginVertical: 20 }}>
-                <ActivityIndicator size="small" color="#ffae00" />
-              </View>
-            ) : null
-          }
         />
       )}
 
@@ -713,101 +645,85 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#030712',
-    fontFamily: 'BricolageRegular'
   },
   header: {
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 8,
     paddingHorizontal: 20,
     backgroundColor: 'transparent',
     zIndex: 100,
   },
-  headerGradient: {
-    position: 'absolute',
-    bottom: -20,
-    left: 0,
-    right: 0,
-    height: 30,
-  },
-  searchContainer: {
+  searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginBottom: 15,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 4,
   },
   searchIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 16,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     color: '#fff',
-    fontSize: 16,
-    paddingVertical: 12,
+    fontSize: 14,
+    paddingVertical: 6,
   },
-  filterRow: {
+  pillFilterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  filterToggleButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,174,0,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255,174,0,0.25)',
   },
-  filterToggleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  pillFilterBtnActive: {
+    backgroundColor: 'rgba(255,174,0,0.2)',
+    borderColor: '#ffae00',
   },
-  filterToggleIcon: {
+  pillFilterText: {
     color: '#ffae00',
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: 12,
+    fontWeight: '700',
   },
-  filterToggleText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  filterToggleBadge: {
-    minWidth: 26,
-    paddingHorizontal: 8,
-    height: 26,
-    borderRadius: 13,
+  pillBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#ffae00',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  filterToggleBadgeText: {
-    color: '#000000',
-    fontSize: 13,
+  pillBadgeText: {
+    color: '#000',
+    fontSize: 10,
     fontWeight: '800',
   },
-  clearInlineButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  pillClearBtn: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 174, 0, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 174, 0, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
   },
-  clearInlineText: {
-    color: '#ffae00',
+  pillClearText: {
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   filtersOverlay: {
     position: 'absolute',
-    top: 150,
+    top: 100,
     left: 0,
     right: 0,
     zIndex: 10,
@@ -883,13 +799,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 100,
+    flexGrow: 1,
   },
 
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
   },
   loadingText: {
     color: '#fff',
@@ -900,12 +816,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
   },
   emptyText: {
     color: '#999',
     fontSize: 16,
     marginTop: 20,
+  },
+  scrollFade: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: 170, zIndex: 25,
   },
   resultsCountText: {
     color: 'rgba(255, 255, 255, 0.7)',

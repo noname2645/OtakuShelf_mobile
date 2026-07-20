@@ -5,6 +5,7 @@ import {
     TextInput,
     TouchableOpacity,
     ScrollView,
+    Animated,
     StyleSheet,
     KeyboardAvoidingView,
     Platform,
@@ -106,7 +107,12 @@ const AIScreen = ({ navigation }) => {
 
     const scrollViewRef = useRef(null);
     const typingIntervalRef = useRef(null);
-    const scrollY = useRef(0);
+    const scrollYAnim = useRef(new Animated.Value(0)).current;
+    const headerBgOpacityAI = scrollYAnim.interpolate({
+        inputRange: [0, 100],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+    });
 
     const { user, API } = useAuth();
 
@@ -120,7 +126,7 @@ const AIScreen = ({ navigation }) => {
     // Handle scroll position
     const handleScroll = (event) => {
         const { contentOffset } = event.nativeEvent;
-        scrollY.current = contentOffset.y;
+        scrollYAnim.setValue(contentOffset.y);
     };
 
     // Load previous conversation on mount
@@ -469,6 +475,11 @@ const AIScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            {/* ── Top scroll fade (ChatGPT style) ── */}
+            <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacityAI }]} pointerEvents="none">
+                <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+            </Animated.View>
+
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.companionInfoWrapper}>
@@ -614,6 +625,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#050814',
+    },
+    scrollFade: {
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: 170, zIndex: 25,
     },
     header: {
         paddingTop: Platform.OS === 'ios' ? 50 : 35,

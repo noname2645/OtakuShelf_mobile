@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Animated,
   Image,
   TouchableOpacity,
   TextInput,
@@ -14,7 +15,6 @@ import {
   Platform,
   RefreshControl,
   StatusBar,
-  Animated
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -504,13 +504,34 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleShareProfile = async () => { try { await Share.share({ message: `Check out ${profileData?.name}'s anime profile!` }); } catch (e) { } };
 
+  const scrollYProfile = useRef(new Animated.Value(0)).current;
+  const headerBgOpacityProfile = scrollYProfile.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#ff6b6b" /><Text style={styles.loadingText}>Loading Profile...</Text></View>;
   if (!profileData) return null;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <ScrollView style={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b6b" />}>
+
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacityProfile }]} pointerEvents="none">
+        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+
+      <ScrollView
+        style={styles.content}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollYProfile } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b6b" />}
+      >
         {/* Cover */}
         <View style={styles.coverContainer}>
           <Image source={{ uri: profileData.coverImage || "https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1600&q=80" }} style={styles.coverImage} />
@@ -634,6 +655,10 @@ const ProfileScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0f1e' },
+  scrollFade: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: 170, zIndex: 25,
+  },
   loadingContainer: { flex: 1, backgroundColor: '#0a0f1e', justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#ff6b6b', marginTop: 10, fontSize: 16 },
   content: { flex: 1 },
