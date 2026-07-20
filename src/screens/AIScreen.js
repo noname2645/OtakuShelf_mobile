@@ -475,11 +475,6 @@ const AIScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {/* ── Top scroll fade (ChatGPT style) ── */}
-            <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacityAI }]} pointerEvents="none">
-                <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
-            </Animated.View>
-
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.companionInfoWrapper}>
@@ -606,6 +601,11 @@ const AIScreen = ({ navigation }) => {
                 </View>
             </KeyboardAvoidingView>
 
+            {/* ── Top scroll fade (ChatGPT style) ── */}
+            <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacityAI }]} pointerEvents="none">
+                <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+            </Animated.View>
+
             <BottomNav navigation={navigation} activeRoute="AI" />
 
             {/* Anime Modal */}
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     },
     scrollFade: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        height: 170, zIndex: 25,
+        height: 170, zIndex: 200,
     },
     header: {
         paddingTop: Platform.OS === 'ios' ? 50 : 35,

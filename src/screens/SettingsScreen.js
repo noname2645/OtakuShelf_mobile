@@ -878,7 +878,7 @@ export default function SettingsScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollYSettings } } }],
-            { useNativeDriver: true }
+            { useNativeDriver: false }
           )}
           scrollEventThrottle={16}
         >
@@ -1038,7 +1038,7 @@ const styles = StyleSheet.create({
   },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    height: 170, zIndex: 25,
+    height: 170, zIndex: 200,
   },
   header: {
     height: Platform.OS === 'ios' ? 90 : 70,

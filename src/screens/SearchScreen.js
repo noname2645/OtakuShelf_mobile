@@ -255,17 +255,23 @@ const SearchScreen = ({ navigation }) => {
   }, [showFilters, filterAnim]);
 
   useEffect(() => {
-    const timeout = setTimeout(async () => {
-      const myRequestId = ++searchIdRef.current;
-      setSearchResults([]);
-      setSearchLoading(true);
+    const myRequestId = ++searchIdRef.current;
+    setSearchResults([]);
+    setSearchLoading(true);
 
-      const [r1, r2, r3] = await Promise.all([
-        doFetch(1, myRequestId),
+    (async () => {
+      const r1 = await doFetch(1, myRequestId);
+      if (myRequestId !== searchIdRef.current) return;
+
+      if (r1) {
+        setSearchResults(r1.items);
+        setSearchLoading(false);
+      }
+
+      const [r2, r3] = await Promise.all([
         doFetch(2, myRequestId),
         doFetch(3, myRequestId),
       ]);
-
       if (myRequestId !== searchIdRef.current) return;
 
       const seen = new Set();
@@ -278,10 +284,7 @@ const SearchScreen = ({ navigation }) => {
       }
 
       setSearchResults(merged);
-      setSearchLoading(false);
-    }, 100);
-
-    return () => clearTimeout(timeout);
+    })();
   }, [searchText, filters]);
 
   const scrollYSearch = useRef(new Animated.Value(0)).current;
@@ -341,14 +344,6 @@ const SearchScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* ── Top scroll fade (ChatGPT style) ── */}
-      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacitySearch }]} pointerEvents="none">
-        <LinearGradient
-          colors={['#030712', 'transparent']}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
-
       {/* Header */}
       <View style={styles.header}>
         {/* Search Bar + Filters combined pill */}
@@ -604,7 +599,7 @@ const SearchScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollYSearch } } }],
-            { useNativeDriver: true }
+            { useNativeDriver: false }
           )}
           onScrollBeginDrag={() => {
             Keyboard.dismiss();
@@ -625,6 +620,11 @@ const SearchScreen = ({ navigation }) => {
           columnWrapperStyle={{ gap: 14 }}
         />
       )}
+
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacitySearch }]} pointerEvents="none">
+        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
 
       <BottomNav navigation={navigation} activeRoute="Search" />
 
@@ -647,11 +647,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#030712',
   },
   header: {
+    position: 'absolute', top: 0, left: 0, right: 0,
     paddingTop: 50,
     paddingBottom: 8,
     paddingHorizontal: 20,
     backgroundColor: 'transparent',
-    zIndex: 100,
+    zIndex: 300,
   },
   searchPill: {
     flexDirection: 'row',
@@ -726,7 +727,7 @@ const styles = StyleSheet.create({
     top: 100,
     left: 0,
     right: 0,
-    zIndex: 10,
+    zIndex: 250,
     paddingHorizontal: 20,
   },
   filtersCard: {
@@ -797,7 +798,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 110,
     paddingBottom: 100,
     flexGrow: 1,
   },
@@ -824,7 +825,7 @@ const styles = StyleSheet.create({
   },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    height: 170, zIndex: 25,
+    height: 170, zIndex: 200,
   },
   resultsCountText: {
     color: 'rgba(255, 255, 255, 0.7)',

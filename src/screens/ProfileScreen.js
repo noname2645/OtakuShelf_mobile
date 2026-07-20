@@ -518,16 +518,11 @@ const ProfileScreen = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* ── Top scroll fade (ChatGPT style) ── */}
-      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacityProfile }]} pointerEvents="none">
-        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
-      </Animated.View>
-
       <ScrollView
         style={styles.content}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollYProfile } } }],
-          { useNativeDriver: true }
+          { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff6b6b" />}
@@ -646,6 +641,11 @@ const ProfileScreen = ({ navigation }) => {
         </View>
       </ScrollView>
 
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacityProfile }]} pointerEvents="none">
+        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+
       <AnimeModal visible={detailsModalVisible} anime={selectedAnimeForDetails} onClose={() => setDetailsModalVisible(false)} onOpenAnime={(a) => fetchAnimeDetails(a)} />
 
       <BottomNav navigation={navigation} activeRoute="Profile" />
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0f1e' },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    height: 170, zIndex: 25,
+    height: 170, zIndex: 200,
   },
   loadingContainer: { flex: 1, backgroundColor: '#0a0f1e', justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#ff6b6b', marginTop: 10, fontSize: 16 },

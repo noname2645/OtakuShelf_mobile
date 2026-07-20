@@ -647,11 +647,6 @@ const ListScreen = () => {
 
   return (
     <View style={s.root}>
-      {/* ── Top scroll fade (ChatGPT style) ── */}
-      <Animated.View style={[s.scrollFade, { opacity: headerBgOpacityList }]} pointerEvents="none">
-        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
-      </Animated.View>
-
       {/* ── Header ── */}
       <View style={s.header}>
         <View>
@@ -718,7 +713,7 @@ const ListScreen = () => {
           stickySectionHeadersEnabled={false}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollYList } } }],
-            { useNativeDriver: true }
+            { useNativeDriver: false }
           )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff5900" colors={['#ff5900']} />}
           ListEmptyComponent={
@@ -738,6 +733,11 @@ const ListScreen = () => {
           removeClippedSubviews={Platform.OS === 'android'}
         />
       )}
+
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[s.scrollFade, { opacity: headerBgOpacityList }]} pointerEvents="none">
+        <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
+      </Animated.View>
 
       {/* ── Modals ── */}
       <AnimeModal visible={detailModalVisible} anime={selectedAnime} onClose={() => setDetailModalVisible(false)} onOpenAnime={(a) => setSelectedAnime(a)} />
@@ -869,7 +869,7 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#030712', paddingTop: Platform.OS === 'ios' ? 56 : 36 },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    height: 170, zIndex: 25,
+    height: 170, zIndex: 200,
   },
 
   // Header
