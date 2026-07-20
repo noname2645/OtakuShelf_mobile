@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 8,
     paddingHorizontal: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(3, 7, 18, 0.85)',
     zIndex: 300,
   },
   searchPill: {
