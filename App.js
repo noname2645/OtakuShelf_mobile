@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as NavigationBar from 'expo-navigation-bar';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { PreferenceProvider } from './src/contexts/PreferenceContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import GoogleAuthScreen from './src/screens/GoogleAuthScreen';
@@ -107,7 +108,8 @@ const [fontsLoaded] = useFonts({
 
   return (
     <AuthProvider>
-      <NavigationContainer theme={navTheme}>
+      <PreferenceProvider>
+        <NavigationContainer theme={navTheme}>
         <StatusBar style="light" backgroundColor="#030712" />
         <Stack.Navigator
           initialRouteName="Home"
@@ -134,7 +136,8 @@ const [fontsLoaded] = useFonts({
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
         </Stack.Navigator>
-      </NavigationContainer>
+        </NavigationContainer>
+      </PreferenceProvider>
     </AuthProvider>
   );
 }

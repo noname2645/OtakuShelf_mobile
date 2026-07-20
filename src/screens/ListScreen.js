@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Image,
   TouchableOpacity,
   Alert,
@@ -12,869 +11,709 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  Animated,
-  SectionList
+  SectionList,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
+import Svg, { Path, Line, Circle, Rect, Polyline } from 'react-native-svg';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
-import ProfilePill from '../components/ProfilePill';
 import AnimeModal from '../components/AnimeModal';
+import StarRating from '../components/StarRating';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+const CARD_W = (width - 48) / 2;
+const CARD_H = CARD_W * 1.5;
 
-const AnimeCard = React.memo(({ anime, cardWidth, activeTab, onIncrement, onRating, onRemove, onStatusPress, onCardPress, navigation, styles }) => {
-  const [imgError, setImgError] = useState(false);
-  const totalEpisodes = anime.totalEpisodes || anime.episodes || 24;
-  const episodesWatched = anime.episodesWatched || 0;
-  const progress = Math.min((episodesWatched / totalEpisodes) * 100, 100);
-  const isCompleted = (anime.status || activeTab) === 'completed';
-  const status = (anime.status || activeTab).toLowerCase();
+const STATUS_CONFIG = {
+  watching: { color: '#22c55e', bg: 'rgba(34,197,94,0.15)', label: 'Watching' },
+  completed: { color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', label: 'Completed' },
+  planned: { color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)', label: 'Plan to Watch' },
+  dropped: { color: '#ef4444', bg: 'rgba(239,68,68,0.15)', label: 'Dropped' },
+  on_hold: { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', label: 'On Hold' },
+};
 
-  const getStatusColor = (s) => {
-    switch (s) {
-      case 'completed': return ['#22c55e', '#16a34a'];
-      case 'planned': return ['#f97316', '#ea580c'];
-      case 'dropped': return ['#6b7280', '#4b5563'];
-      default: return ['#3b82f6', '#1e40af']; // watching/default
-    }
-  };
+const TAB_ORDER = ['watching', 'completed', 'planned', 'dropped'];
 
-  const statusColors = getStatusColor(status);
+// ─── SVG Icons ────────────────────────────────────────────────────────
 
-  const imageUrl = useMemo(() => {
-    if (imgError) return `https://picsum.photos/seed/${anime._id || anime.animeId}/200/300`;
+const HeartSvg = ({ filled }) => (
+  <Svg width={14} height={14} viewBox="0 0 24 24"
+    fill={filled ? '#ff2a5f' : 'none'}
+    stroke={filled ? '#ff2a5f' : 'rgba(255,255,255,0.6)'}
+    strokeWidth={2}
+  >
+    <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </Svg>
+);
 
-    const sources = [
-      anime.coverImage?.large,
-      anime.coverImage?.extraLarge,
-      (typeof anime.coverImage === 'string' ? anime.coverImage : null),
-      anime.image,
-      anime.image_url,
-      anime.images?.jpg?.large_image_url,
-      anime.images?.jpg?.image_url,
-      anime.poster,
-      anime.cover,
-      anime.main_picture?.medium,
-      anime.main_picture?.large
-    ];
-    const validSource = sources.find(s => typeof s === 'string' && s.length > 5 && s.startsWith('http'));
-    return validSource || `https://placehold.co/300x400/222/fff?text=${encodeURIComponent(anime.title).substring(0, 20)}`;
-  }, [anime, imgError]);
+const PlusSvg = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2.5}>
+    <Line x1="12" y1="5" x2="12" y2="19" />
+    <Line x1="5" y1="12" x2="19" y2="12" />
+  </Svg>
+);
 
-  return (
-    <View style={[styles.cardContainer, { width: cardWidth }]}>
-      <TouchableOpacity
-        style={styles.cardPosterContainer}
-        activeOpacity={0.9}
-        onPress={() => onCardPress(anime)}
-      >
-        {/* Base Image with Brightness Effect */}
-        <View style={styles.imageWrapper}>
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.posterImage}
-            resizeMode="cover"
-            onError={() => setImgError(true)}
-          />
+const MinusSvg = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2.5}>
+    <Line x1="5" y1="12" x2="19" y2="12" />
+  </Svg>
+);
 
-          {/* Dark overlay for unwatched portion */}
-          {!isCompleted && (
-            <View style={styles.darkOverlay} />
-          )}
-        </View>
+const ClapboardSvg = () => (
+  <Svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
+    <Rect x="2" y="4" width="20" height="16" rx="2" />
+    <Line x1="8" y1="2" x2="8" y2="6" />
+    <Line x1="16" y1="2" x2="16" y2="6" />
+    <Line x1="2" y1="10" x2="22" y2="10" />
+  </Svg>
+);
 
-        {/* Color Overlay for Progress - Only show if not completed */}
-        {!isCompleted && (
-          <View style={[styles.colorOverlay, { width: `${progress}%` }]}>
-            <Image
-              source={{ uri: imageUrl }}
-              style={[styles.posterImage, { width: cardWidth }]}
-              resizeMode="cover"
-            />
-          </View>
-        )}
+const TrashSvg = () => (
+  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" strokeWidth={2}>
+    <Polyline points="3 6 5 6 21 6" />
+    <Path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </Svg>
+);
 
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(10,15,30,0.9)']}
-          locations={[0, 0.4, 1]}
-          style={styles.cardOverlay}
-        >
-          <BlurView intensity={20} tint="dark" style={styles.titleBlurWrapper}>
-            <Text style={styles.cardTitle} numberOfLines={2}>{anime.title}</Text>
-          </BlurView>
+const CheckSvg = () => (
+  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={3}>
+    <Polyline points="20 6 9 17 4 12" />
+  </Svg>
+);
 
-          <View style={styles.episodeInfo}>
-            <View style={styles.dot} />
-            <Text style={styles.episodeText}>{episodesWatched}/{totalEpisodes} eps</Text>
-            {!isCompleted && (
-              <TouchableOpacity
-                style={styles.plusBtn}
-                onPress={() => onIncrement(anime)}
-              >
-                <Text style={styles.plusBtnText}>+1</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Progress Bar */}
-          <View style={styles.progressBarBg}>
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              style={{ width: `${progress}%`, height: '100%' }}
-            />
-          </View>
-
-          {/* Actions Row */}
-          <View style={styles.cardActions}>
-            <View style={styles.starsRow}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <TouchableOpacity key={star} onPress={() => onRating(anime, star)}>
-                  <Ionicons
-                    name={star <= (anime.userRating || 0) ? "star" : "star-outline"}
-                    size={16}
-                    color="#ffd700"
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity onPress={() => onRemove(anime._id || anime.animeId)}>
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        {/* Status Badge */}
-        <TouchableOpacity
-          style={styles.badgeContainer}
-          onPress={() => onStatusPress(anime)}
-        >
-          <LinearGradient colors={statusColors} style={styles.statusBadge}>
-            <Text style={styles.statusText}>{(anime.status || activeTab).toUpperCase()}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </View>
-  );
-});
+const SearchSvg = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth={2}>
+    <Circle cx="11" cy="11" r="8" />
+    <Line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </Svg>
+);
 
 const ANIME_DETAILS_QUERY = `
   query ($id: Int) {
     Media (id: $id, type: ANIME) {
-      id
-      idMal
+      id idMal
       title { romaji english native }
       coverImage { extraLarge large medium }
-      bannerImage
-      description
-      episodes
-      status
-      format
-      genres
-      averageScore
+      bannerImage description episodes status format genres averageScore
       studios { nodes { name } }
       startDate { year month day }
       endDate { year month day }
       trailer { id site }
       relations {
-        edges {
-          relationType
-          node {
-            id
-            title { romaji english native }
-            format
-            status
-            coverImage { medium }
-          }
-        }
+        edges { relationType node { id title { romaji english native } format status coverImage { medium } } }
       }
     }
   }
 `;
 
-const ListScreen = ({ navigation }) => {
-  const { user, API, logout } = useAuth();
+// ─── Premium Anime Card ───────────────────────────────────────────────
 
-  // State
+const PremiumAnimeCard = React.memo(({
+  anime, cardWidth, activeTab,
+  onIncrement, onDecrement, onRating, onRemove, onStatusChange, onCardPress, onFavoriteToggle
+}) => {
+  const [imgErr, setImgErr] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const totalEp = anime.totalEpisodes || anime.episodes || 24;
+  const currEp = anime.episodesWatched || 0;
+  const progress = totalEp > 0 ? Math.min((currEp / totalEp) * 100, 100) : 0;
+  const status = (anime.status || activeTab).toLowerCase();
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.watching;
+  const isFav = anime.favorite || false;
+
+  const imageUrl = useMemo(() => {
+    if (imgErr) return `https://placehold.co/300/400/222/fff?text=No+Image`;
+    return anime.coverImage?.large || anime.coverImage?.extraLarge ||
+      anime.image || anime.image_url || anime.images?.jpg?.large_image_url ||
+      anime.main_picture?.medium || `https://placehold.co/300/400/222/fff?text=Anime`;
+  }, [anime, imgErr]);
+
+  const title = anime.title?.english || anime.title?.romaji || anime.title || 'Unknown';
+
+  return (
+    <View style={[s.cardOuter, { width: cardWidth, height: CARD_H }]}>
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={() => onCardPress?.(anime)}
+        onLongPress={() => setMenuOpen(true)}
+        delayLongPress={400}
+        style={s.cardTouch}
+      >
+        {/* ── Full card image ── */}
+        <Image source={{ uri: imageUrl }} style={s.cardImage} resizeMode="cover" onError={() => setImgErr(true)} />
+
+        {/* ── Full fade overlay ── */}
+        <LinearGradient
+          colors={['transparent', 'rgba(12,16,28,0.3)', 'rgba(12,16,28,0.75)', '#0c101c']}
+          locations={[0, 0.35, 0.65, 1]}
+          style={s.fullFade}
+        />
+
+        {/* ── Badges ── */}
+        <View style={s.badgesRow}>
+          <TouchableOpacity
+            style={s.favBtn}
+            onPress={() => onFavoriteToggle?.(anime)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <HeartSvg filled={isFav} />
+          </TouchableOpacity>
+          <View style={[s.statusPill, { backgroundColor: cfg.bg, borderColor: cfg.color }]}>
+            <Text style={[s.statusPillText, { color: cfg.color }]}>{cfg.label.toUpperCase()}</Text>
+          </View>
+        </View>
+
+        {/* ── Body ── */}
+        <View style={s.cardBody}>
+          <Text style={s.cardTitle} numberOfLines={2}>{title}</Text>
+
+          {/* Progress Box */}
+          <View style={s.progressBox}>
+            <View style={s.progressRow}>
+              <TouchableOpacity
+                style={s.epBtn}
+                onPress={() => onDecrement?.(anime)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MinusSvg />
+              </TouchableOpacity>
+              <View style={s.epInfo}>
+                <Text style={s.epLabel}>EPISODES</Text>
+                <Text style={s.epValue}>{currEp} / {totalEp}</Text>
+              </View>
+              <TouchableOpacity
+                style={s.epBtn}
+                onPress={() => onIncrement?.(anime)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <PlusSvg />
+              </TouchableOpacity>
+            </View>
+            <View style={s.progressTrack}>
+              <View style={[s.progressFill, { width: `${progress}%`, backgroundColor: cfg.color }]} />
+            </View>
+          </View>
+
+          {/* Footer */}
+          <View style={s.cardFooter}>
+            <View style={s.ratingSection}>
+              <Text style={s.ratingLabel}>YOUR RATING</Text>
+              <View style={s.starRow}>
+                <StarRating rating={anime.userRating || 0} onRate={(r) => onRating?.(anime, r)} size={20} maxStars={5} />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={s.removeBtn}
+              onPress={() => onRemove?.(anime._id || anime.animeId)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <TrashSvg />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* ── Status Menu Dropdown ── */}
+      {menuOpen && (
+        <TouchableOpacity style={s.menuOverlay} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+          <View style={s.menuDropdown}>
+            {TAB_ORDER.map(tab => {
+              const c = STATUS_CONFIG[tab];
+              const isCurrent = tab === status;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[s.menuItem, isCurrent && { backgroundColor: c.bg }]}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    onStatusChange?.(anime, tab);
+                  }}
+                >
+                  <Text style={[s.menuItemText, { color: isCurrent ? c.color : 'rgba(255,255,255,0.7)' }]}>
+                    {c.label}
+                  </Text>
+                  {isCurrent && <CheckSvg />}
+                </TouchableOpacity>
+              );
+            })}
+            <View style={s.menuDivider} />
+            <TouchableOpacity
+              style={s.menuRemoveItem}
+              onPress={() => {
+                setMenuOpen(false);
+                onRemove?.(anime._id || anime.animeId);
+              }}
+            >
+              <Text style={s.menuRemoveText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
+// ─── List Screen ──────────────────────────────────────────────────────
+
+const ListScreen = () => {
+  const { user, API } = useAuth();
+
   const [activeTab, setActiveTab] = useState('watching');
   const [animeList, setAnimeList] = useState({
-    watching: [],
-    completed: [],
-    planned: [],
-    dropped: [],
+    watching: [], completed: [], planned: [], dropped: [], on_hold: [],
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // Import State
+  // Import
   const [importing, setImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importOption, setImportOption] = useState('replace');
   const [importProgress, setImportProgress] = useState('');
 
-  // Editing/Modals
-  const [statusModalVisible, setStatusModalVisible] = useState(false);
-  const [selectedAnimeForStatus, setSelectedAnimeForStatus] = useState(null);
+  // Add Modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addQuery, setAddQuery] = useState('');
+  const [addResults, setAddResults] = useState([]);
+  const [addLoading, setAddLoading] = useState(false);
+  const addDebounce = useRef(null);
 
-  // Details Modal
-  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [selectedAnimeForDetails, setSelectedAnimeForDetails] = useState(null);
+  // Detail
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedAnime, setSelectedAnime] = useState(null);
 
   const wsRef = useRef(null);
 
-  const fetchAnimeDetails = async (anime) => {
-    const aniListId = anime.animeId || anime.id;
-    // If we only have Mongo _id and no external ID, we can't fetch from AniList easily.
-    // Assuming animeId is preserved.
-    if (!aniListId) return;
-
-    try {
-      const response = await axios.post('https://graphql.anilist.co', {
-        query: ANIME_DETAILS_QUERY,
-        variables: { id: aniListId }
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-
-      const media = response.data.data.Media;
-
-      if (media) {
-        const fullAnime = {
-          ...anime,
-          ...media,
-          title: media.title, // Ensure title object is set if it was string
-          coverImage: media.coverImage,
-          // Conserve our local status/progress but prioritize media status for display
-          userListStatus: anime.status,
-          status: media.status,
-          episodesWatched: anime.episodesWatched,
-          userRating: anime.userRating,
-          _id: anime._id,
-        };
-        setSelectedAnimeForDetails(fullAnime);
-      }
-    } catch (e) {
-      console.log("Failed to fetch rich details from AniList", e);
-    }
-  };
-
-  const getFallbackImage = (animeTitle) => {
-    const encodedTitle = encodeURIComponent(animeTitle || 'Anime Poster');
-    return `https://placehold.co/300x180/667eea/ffffff?text=${encodedTitle}&font=roboto`;
-  };
-
-  // WebSocket connection
+  // ── WebSocket ──
   useEffect(() => {
-    if (!user || !user._id) return;
-
-    const connectWebSocket = () => {
+    if (!user?._id) return;
+    const connect = () => {
       try {
-        const backendUrl = API.replace('http://', 'ws://').replace('https://', 'wss://');
-        const wsUrl = `${backendUrl}/ws?userId=${user._id}`;
-
+        const wsUrl = `${API.replace('http://', 'ws://').replace('https://', 'wss://')}/ws?userId=${user._id}`;
         wsRef.current = new WebSocket(wsUrl);
-
-        wsRef.current.onopen = () => {
-          console.log('✅ WebSocket connected');
-        };
-
-        wsRef.current.onmessage = (event) => {
+        wsRef.current.onmessage = (e) => {
           try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'progress') {
-              if (data.current !== undefined && data.total !== undefined) {
-                const progressStr = `${data.current}/${data.total}`;
-                setImportProgress(progressStr);
-              }
-
-              if (data.completed) {
-                setTimeout(() => setImportProgress(''), 2000);
-                setImporting(false);
-              }
-
-              if (data.error) {
-                console.error('Import error:', data.message);
-              }
+            const d = JSON.parse(e.data);
+            if (d.type === 'progress') {
+              setImportProgress(d.current !== undefined ? `${d.current}/${d.total}` : '');
+              if (d.completed) { setTimeout(() => setImportProgress(''), 2000); setImporting(false); }
             }
-          } catch (e) {
-            console.error('Failed to parse WebSocket message:', e);
-          }
+          } catch (_) {}
         };
-
-        wsRef.current.onerror = (error) => {
-          console.log('WebSocket connection error (expected in some envs):', error.message);
-        };
-
-        wsRef.current.onclose = (event) => {
-          if (event.code !== 1000) {
-            // Reconnect logic possibly
-          }
-        };
-
-      } catch (error) {
-        console.error('WebSocket setup error:', error);
-      }
+      } catch (_) {}
     };
-
-    connectWebSocket();
-
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
+    connect();
+    return () => wsRef.current?.close();
   }, [user, API]);
 
+  // ── Fetch List ──
   const fetchAnimeList = useCallback(async () => {
     try {
       if (!refreshing) setLoading(true);
       setError(null);
-
-      const userId = user?._id || user?.id;
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
-      const token = await AsyncStorage.getItem("token");
-      const response = await axios.get(`${API}/api/list/${userId}`, {
+      const uid = user?._id || user?.id;
+      if (!uid) { setLoading(false); return; }
+      const token = await AsyncStorage.getItem('token');
+      const res = await axios.get(`${API}/api/list/${uid}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-
-      let listData = response.data?.data || response.data;
-
-      const normalizedList = {
-        watching: [],
-        completed: [],
-        planned: [],
-        dropped: [],
-      };
-
-      if (listData) {
-        normalizedList.watching = Array.isArray(listData.watching) ? listData.watching : [];
-        normalizedList.completed = Array.isArray(listData.completed) ? listData.completed : [];
-        normalizedList.planned = Array.isArray(listData.planned) ? listData.planned : [];
-        normalizedList.dropped = Array.isArray(listData.dropped) ? listData.dropped : [];
-      }
-
-      setAnimeList(normalizedList);
-    } catch (error) {
-      console.error("Error fetching list:", error);
-      setError("Failed to load anime list");
+      const data = res.data?.data || res.data;
+      setAnimeList({
+        watching: Array.isArray(data.watching) ? data.watching : [],
+        completed: Array.isArray(data.completed) ? data.completed : [],
+        planned: Array.isArray(data.planned) ? data.planned : [],
+        dropped: Array.isArray(data.dropped) ? data.dropped : [],
+        on_hold: Array.isArray(data.on_hold) ? data.on_hold : [],
+      });
+    } catch (e) {
+      setError('Failed to load anime list');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [user, API, refreshing]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchAnimeList();
-  }, [fetchAnimeList]);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchAnimeList(); }, [fetchAnimeList]);
 
-  useEffect(() => {
-    if (user) {
-      fetchAnimeList();
+  useEffect(() => { if (user) fetchAnimeList(); else setLoading(false); }, [user, fetchAnimeList]);
+
+  // ── Update helpers ──
+  const updateAnimeInList = useCallback((id, updates) => {
+    setAnimeList(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(cat => {
+        if (Array.isArray(next[cat])) {
+          next[cat] = next[cat].map(a => (a._id === id || a.animeId === id) ? { ...a, ...updates } : a);
+        }
+      });
+      return next;
+    });
+  }, []);
+
+  const moveAnime = useCallback((id, fromCat, toCat) => {
+    setAnimeList(prev => {
+      const next = { ...prev };
+      const from = next[fromCat] || [];
+      const idx = from.findIndex(a => a._id === id || a.animeId === id);
+      if (idx === -1) return prev;
+      const [item] = from.splice(idx, 1);
+      next[fromCat] = [...from];
+      next[toCat] = [...(next[toCat] || []), { ...item, status: toCat }];
+      return next;
+    });
+  }, []);
+
+  // ── Actions ──
+  const handleStatusChange = useCallback(async (anime, newStatus) => {
+    const uid = user?._id || user?.id;
+    if (!uid) return;
+    const id = anime._id || anime.animeId;
+    const total = anime.totalEpisodes || anime.episodes || 24;
+    const oldStatus = anime.status || activeTab;
+
+    const payload = { status: newStatus, fromCategory: oldStatus };
+    if (newStatus === 'completed') {
+      payload.episodesWatched = total;
+      updateAnimeInList(id, { status: newStatus, episodesWatched: total });
     } else {
-      setLoading(false);
+      updateAnimeInList(id, { status: newStatus });
     }
-  }, [user, fetchAnimeList]);
+    if (oldStatus !== newStatus) moveAnime(id, oldStatus, newStatus);
 
-  // Update helpers
-  const updateAnimeInList = useCallback((animeId, updates) => {
-    setAnimeList(prev => {
-      const newList = { ...prev };
-      Object.keys(newList).forEach(category => {
-        if (Array.isArray(newList[category])) {
-          newList[category] = newList[category].map(anime => {
-            if (anime._id === animeId || anime.animeId === animeId) {
-              return { ...anime, ...updates };
-            }
-            return anime;
-          });
-        }
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`${API}/api/list/${uid}/${id}`, payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      return newList;
-    });
-  }, []);
+    } catch { fetchAnimeList(); }
+  }, [user, API, activeTab]);
 
-  const moveAnimeBetweenCategories = useCallback((animeId, fromCategory, toCategory) => {
-    setAnimeList(prev => {
-      const newList = { ...prev };
-      if (!Array.isArray(newList[fromCategory])) newList[fromCategory] = [];
-      if (!Array.isArray(newList[toCategory])) newList[toCategory] = [];
-
-      const animeIndex = newList[fromCategory].findIndex(
-        anime => anime._id === animeId || anime.animeId === animeId
-      );
-
-      if (animeIndex === -1) return prev;
-
-      const [anime] = newList[fromCategory].splice(animeIndex, 1);
-      const updatedAnime = { ...anime, status: toCategory };
-      newList[toCategory].push(updatedAnime);
-
-      return newList;
-    });
-  }, []);
-
-  // Grouping Logic
-  const groupAnimeByMonthYear = useCallback((inputList, category) => {
-    if (!Array.isArray(inputList) || inputList.length === 0) return [];
-
-    const groups = {};
-
-    inputList.forEach(anime => {
-      let date;
-      let hasValidDate = true;
-
-      if (category === 'completed') {
-        if (anime.finishDate) date = new Date(anime.finishDate);
-        else if (anime.addedDate) date = new Date(anime.addedDate);
-        else if (anime.updatedAt) date = new Date(anime.updatedAt);
-        else if (anime.createdAt) date = new Date(anime.createdAt);
-        else {
-          date = new Date(0);
-          hasValidDate = false;
-        }
-      } else {
-        if (anime.addedDate) date = new Date(anime.addedDate);
-        else if (anime.createdAt) date = new Date(anime.createdAt);
-        else if (anime.updatedAt) date = new Date(anime.updatedAt);
-        else {
-          date = new Date(0);
-          hasValidDate = false;
-        }
-      }
-
-      if (isNaN(date.getTime())) {
-        date = new Date(0);
-        hasValidDate = false;
-      }
-
-      let key;
-      if (!hasValidDate || date.getTime() === 0) {
-        key = "Unknown Date";
-      } else {
-        const month = date.toLocaleString('default', { month: 'long' });
-        const year = date.getFullYear();
-        key = `${month} ${year}`;
-      }
-
-      if (!groups[key]) {
-        groups[key] = {
-          title: key,
-          sortDate: hasValidDate ? new Date(date.getFullYear(), date.getMonth(), 1) : new Date(0),
-          hasValidDate: hasValidDate,
-          anime: []
-        };
-      }
-      groups[key].anime.push(anime);
-    });
-
-    return Object.values(groups).sort((a, b) => {
-      if (!a.hasValidDate && b.hasValidDate) return 1;
-      if (a.hasValidDate && !b.hasValidDate) return -1;
-      return b.sortDate - a.sortDate;
-    });
-  }, []);
-
-  const sortedAnimeList = useMemo(() => {
-    const list = animeList[activeTab];
-    if (!Array.isArray(list) || list.length === 0) return [];
-
-    // Separate anime with and without dates
-    const animeWithDates = [];
-    const animeWithoutDates = [];
-
-    list.forEach(anime => {
-      let hasDate = false;
-      if (activeTab === 'completed') {
-        if (anime.finishDate || anime.addedDate || anime.createdAt || anime.updatedAt) hasDate = true;
-      } else {
-        if (anime.addedDate || anime.createdAt || anime.updatedAt) hasDate = true;
-      }
-
-      if (hasDate) animeWithDates.push(anime);
-      else animeWithoutDates.push(anime);
-    });
-
-    // Sort anime with dates (newest first)
-    animeWithDates.sort((a, b) => {
-      const dateA = new Date(
-        activeTab === 'completed'
-          ? (a.finishDate || a.addedDate || a.createdAt || a.updatedAt)
-          : (a.addedDate || a.createdAt || a.updatedAt)
-      );
-      const dateB = new Date(
-        activeTab === 'completed'
-          ? (b.finishDate || b.addedDate || b.createdAt || b.updatedAt)
-          : (b.addedDate || b.createdAt || b.updatedAt)
-      );
-      return dateB - dateA;
-    });
-
-    // Sort anime without dates alphabetically
-    animeWithoutDates.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-
-    // Group only anime with valid dates using the existing helper (but customized input)
-    // We can reuse the helper or just do it logic here. Reuse helper is slightly weird because helper also sorts groups.
-    // Let's manually group to ensure it matches exactly what we want.
-
-    const groups = {};
-    animeWithDates.forEach(anime => {
-      const date = new Date(
-        activeTab === 'completed'
-          ? (anime.finishDate || anime.addedDate || anime.createdAt || anime.updatedAt)
-          : (anime.addedDate || anime.createdAt || anime.updatedAt)
-      );
-
-      const month = date.toLocaleString('default', { month: 'long' });
-      const year = date.getFullYear();
-      const key = `${month} ${year}`;
-
-      if (!groups[key]) {
-        groups[key] = {
-          title: key,
-          sortDate: new Date(date.getFullYear(), date.getMonth(), 1), // for group sorting
-          anime: []
-        };
-      }
-      groups[key].anime.push(anime);
-    });
-
-    // Sort the groups
-    const sortedGroups = Object.values(groups).sort((a, b) => b.sortDate - a.sortDate);
-
-    // Add No Date header if needed
-    if (animeWithoutDates.length > 0) {
-      sortedGroups.push({
-        title: "No Date Available",
-        anime: animeWithoutDates
+  const handleFavoriteToggle = useCallback(async (anime) => {
+    const uid = user?._id || user?.id;
+    if (!uid) return;
+    const id = anime._id || anime.animeId;
+    const next = !anime.favorite;
+    updateAnimeInList(id, { favorite: next });
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`${API}/api/list/${uid}/${id}`, { favorite: next, status: anime.status || activeTab }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+    } catch { updateAnimeInList(id, { favorite: !next }); }
+  }, [user, API, activeTab]);
+
+  const handleIncrement = useCallback(async (anime) => {
+    const uid = user?._id || user?.id;
+    if (!uid) return;
+    const id = anime._id || anime.animeId;
+    const total = anime.totalEpisodes || anime.episodes || 24;
+    const curr = anime.episodesWatched || 0;
+    if (curr >= total) return;
+    const next = curr + 1;
+    updateAnimeInList(id, { episodesWatched: next });
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`${API}/api/list/${uid}/${id}`, { episodesWatched: next, category: activeTab }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (next >= total) handleStatusChange(anime, 'completed');
+    } catch {
+      updateAnimeInList(id, { episodesWatched: curr });
     }
+  }, [user, API, activeTab, handleStatusChange]);
 
-    return sortedGroups;
-  }, [animeList, activeTab]);
+  const handleDecrement = useCallback(async (anime) => {
+    const uid = user?._id || user?.id;
+    if (!uid) return;
+    const id = anime._id || anime.animeId;
+    const curr = anime.episodesWatched || 0;
+    if (curr <= 0) return;
+    const next = curr - 1;
+    updateAnimeInList(id, { episodesWatched: next });
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`${API}/api/list/${uid}/${id}`, { episodesWatched: next, category: activeTab }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      updateAnimeInList(id, { episodesWatched: curr });
+    }
+  }, [user, API, activeTab]);
 
-  // Actions
-  const handleRemove = useCallback(async (animeId) => {
-    Alert.alert(
-      "Confirm Removal",
-      "Are you sure you want to remove this anime from your list?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const userId = user?._id || user?.id;
-              if (!userId) return;
-              const token = await AsyncStorage.getItem("token");
-              await axios.delete(`${API}/api/list/${userId}/${animeId}`, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
+  const handleRating = useCallback(async (anime, rating) => {
+    const uid = user?._id || user?.id;
+    if (!uid) return;
+    const id = anime._id || anime.animeId;
+    updateAnimeInList(id, { userRating: rating });
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`${API}/api/list/${uid}/${id}`, { userRating: rating, status: anime.status || activeTab }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      updateAnimeInList(id, { userRating: anime.userRating || 0 });
+    }
+  }, [user, API, activeTab]);
+
+  const handleRemove = useCallback((id) => {
+    Alert.alert('Remove Anime', 'Remove this from your list?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          const uid = user?._id || user?.id;
+          if (!uid) return;
+          try {
+            const token = await AsyncStorage.getItem('token');
+            await axios.delete(`${API}/api/list/${uid}/${id}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            setAnimeList(prev => {
+              const next = { ...prev };
+              Object.keys(next).forEach(cat => {
+                next[cat] = (next[cat] || []).filter(a => a._id !== id && a.animeId !== id);
               });
-
-              setAnimeList(prev => {
-                const newList = { ...prev };
-                Object.keys(newList).forEach(category => {
-                  if (Array.isArray(newList[category])) {
-                    newList[category] = newList[category].filter(
-                      anime => anime._id !== animeId && anime.animeId !== animeId
-                    );
-                  }
-                });
-                return newList;
-              });
-            } catch (error) {
-              Alert.alert("Error", "Failed to remove anime.");
-            }
-          }
+              return next;
+            });
+          } catch { Alert.alert('Error', 'Failed to remove.'); }
         }
-      ]
-    );
+      }
+    ]);
   }, [user, API]);
 
-  const handleStatusChange = async (anime, newStatus) => {
-    const userId = user?._id || user?.id;
-    if (!userId) return;
-    const animeId = anime._id || anime.animeId;
-    const totalEpisodes = anime.totalEpisodes || anime.episodes || 24;
-    const currentStatus = anime.status || activeTab;
-    const currentEpisodes = anime.episodesWatched || 0;
-
-    try {
-      const payload = { status: newStatus, fromCategory: currentStatus };
-      let episodeUpdate = {};
-
-      if (newStatus === "completed") {
-        payload.episodesWatched = totalEpisodes;
-        episodeUpdate = { episodesWatched: totalEpisodes };
-      }
-
-      updateAnimeInList(animeId, { status: newStatus, ...episodeUpdate });
-
-      if (currentStatus !== newStatus) {
-        moveAnimeBetweenCategories(animeId, currentStatus, newStatus);
-      }
-
-      const token = await AsyncStorage.getItem("token");
-      await axios.put(`${API}/api/list/${userId}/${animeId}`, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-    } catch (err) {
-      console.error("Status update error", err);
-      fetchAnimeList(); // Revert
+  // ── Card Press → Detail ──
+  const handleCardPress = useCallback(async (anime) => {
+    const aniListId = anime.animeId || anime.id;
+    if (!aniListId) {
+      setSelectedAnime(anime);
+      setDetailModalVisible(true);
+      return;
     }
-  };
-
-  const handleIncrementEpisode = async (anime) => {
-    const userId = user?._id || user?.id;
-    if (!userId) return;
-    const animeId = anime._id || anime.animeId;
-    const totalEpisodes = anime.totalEpisodes || anime.episodes || 24;
-    const currentEpisodes = anime.episodesWatched || 0;
-
-    if (currentEpisodes >= totalEpisodes) return;
-
-    const updatedEpisodes = currentEpisodes + 1;
-    updateAnimeInList(animeId, { episodesWatched: updatedEpisodes });
-
     try {
-      const token = await AsyncStorage.getItem("token");
-      await axios.put(`${API}/api/list/${userId}/${animeId}`, {
-        episodesWatched: updatedEpisodes,
-        category: activeTab
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await axios.post('https://graphql.anilist.co', {
+        query: ANIME_DETAILS_QUERY, variables: { id: aniListId }
+      }, { headers: { 'Content-Type': 'application/json' } });
+      const media = res.data.data.Media;
+      if (media) {
+        setSelectedAnime({ ...anime, ...media, title: media.title, coverImage: media.coverImage, userListStatus: anime.status, _id: anime._id });
+      } else setSelectedAnime(anime);
+    } catch { setSelectedAnime(anime); }
+    setDetailModalVisible(true);
+  }, []);
 
-      if (updatedEpisodes >= totalEpisodes) {
-        handleStatusChange(anime, "completed");
-      }
-    } catch (err) {
-      updateAnimeInList(animeId, { episodesWatched: currentEpisodes });
-    }
-  };
-
-  const handleRatingChange = async (anime, newRating) => {
-    const userId = user?._id || user?.id;
-    if (!userId) return;
-    const animeId = anime._id || anime.animeId;
-    updateAnimeInList(animeId, { userRating: newRating });
-
-    try {
-      const token = await AsyncStorage.getItem("token");
-      await axios.put(`${API}/api/list/${userId}/${animeId}`, {
-        userRating: newRating,
-        status: anime.status || activeTab
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-    } catch (err) {
-      updateAnimeInList(animeId, { userRating: anime.userRating || 0 }); // Revert
-    }
-  };
-
-
-  // Import Logic
+  // ── Import ──
   const handleFileSelect = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/xml', 'text/xml'],
-        copyToCacheDirectory: true
+        copyToCacheDirectory: true,
       });
-
       if (result.canceled) return;
-
-      const file = result.assets ? result.assets[0] : result;
-      setSelectedFile(file);
+      setSelectedFile(result.assets ? result.assets[0] : result);
       setShowImportModal(true);
-
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to pick file");
-    }
+    } catch { Alert.alert('Error', 'Failed to pick file'); }
   };
 
   const handleImportConfirm = async () => {
-    const userId = user?._id || user?.id;
-    if (!selectedFile || !userId) return;
-
+    const uid = user?._id || user?.id;
+    if (!selectedFile || !uid) return;
     setShowImportModal(false);
     setImporting(true);
     setImportProgress('0/?');
-
-    const formData = new FormData();
-    formData.append('malFile', {
-      uri: selectedFile.uri,
-      name: selectedFile.name,
-      type: selectedFile.mimeType || 'text/xml'
-    });
-    formData.append('userId', userId);
-    formData.append('clearExisting', (importOption === 'replace').toString());
-
+    const fd = new FormData();
+    fd.append('malFile', { uri: selectedFile.uri, name: selectedFile.name, type: selectedFile.mimeType || 'text/xml' });
+    fd.append('userId', uid);
+    fd.append('clearExisting', (importOption === 'replace').toString());
     try {
-      const token = await AsyncStorage.getItem("token");
-      const response = await axios.post(`${API}/api/list/import/mal`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
+      const token = await AsyncStorage.getItem('token');
+      const res = await axios.post(`${API}/api/list/import/mal`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
-
-      if (response.data.success) {
-        Alert.alert("Success", response.data.message);
-        fetchAnimeList();
-      } else {
-        Alert.alert("Error", response.data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Import Failed", error.response?.data?.message || "Check your internet connection or file format.");
-    } finally {
-      setImporting(false);
-      setImportProgress('');
-      setSelectedFile(null);
-    }
+      if (res.data.success) { Alert.alert('Success', res.data.message); fetchAnimeList(); }
+      else Alert.alert('Error', res.data.message);
+    } catch {
+      Alert.alert('Import Failed', 'Check your file or connection.');
+    } finally { setImporting(false); setImportProgress(''); setSelectedFile(null); }
   };
 
+  // ── Add Anime (Jikan search) ──
+  const handleAddSearch = useCallback((text) => {
+    setAddQuery(text);
+    if (addDebounce.current) clearTimeout(addDebounce.current);
+    if (!text.trim()) { setAddResults([]); return; }
+    addDebounce.current = setTimeout(async () => {
+      setAddLoading(true);
+      try {
+        const res = await axios.get(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(text)}&limit=15`);
+        setAddResults(res.data.data || []);
+      } catch { setAddResults([]); }
+      setAddLoading(false);
+    }, 500);
+  }, []);
 
+  const handleAddToList = async (anime) => {
+    const uid = user?._id || user?.id;
+    if (!uid) return;
+    const payload = {
+      animeId: anime.mal_id,
+      title: anime.title_english || anime.title || anime.title_japanese,
+      coverImage: { large: anime.images?.jpg?.large_image_url },
+      totalEpisodes: anime.episodes || 0,
+      status: 'planned',
+      format: anime.type || 'TV',
+    };
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.post(`${API}/api/list/${uid}`, payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      Alert.alert('Added', `${payload.title} added to your list.`);
+      setAddQuery('');
+      setAddResults([]);
+      setShowAddModal(false);
+      fetchAnimeList();
+    } catch { Alert.alert('Error', 'Failed to add anime.'); }
+  };
 
-  // Prepare data for SectionList (Virtualization)
-  const sections = useMemo(() => {
-    if (!sortedAnimeList || sortedAnimeList.length === 0) return [];
-
-    return sortedAnimeList.map(group => {
-      // Chunk the anime array into pairs for 2-column grid
-      const rows = [];
-      for (let i = 0; i < group.anime.length; i += 2) {
-        rows.push(group.anime.slice(i, i + 2));
-      }
-      return {
-        title: group.title,
-        data: rows
-      };
+  // ── Grouping ──
+  const sortedGroups = useMemo(() => {
+    const list = animeList[activeTab] || [];
+    if (!list.length) return [];
+    const groups = {};
+    list.forEach(a => {
+      const d = new Date(a.addedDate || a.createdAt || a.updatedAt || Date.now());
+      const key = isNaN(d.getTime()) ? 'Unknown' : `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
+      if (!groups[key]) groups[key] = { title: key, sort: isNaN(d.getTime()) ? new Date(0) : new Date(d.getFullYear(), d.getMonth(), 1), anime: [] };
+      groups[key].anime.push(a);
     });
-  }, [sortedAnimeList]);
+    return Object.values(groups).sort((a, b) => b.sort - a.sort);
+  }, [animeList, activeTab]);
 
+  const sections = useMemo(() => {
+    return sortedGroups.map(g => {
+      const rows = [];
+      for (let i = 0; i < g.anime.length; i += 2) rows.push(g.anime.slice(i, i + 2));
+      return { title: g.title, data: rows };
+    });
+  }, [sortedGroups]);
+
+  // ── Render ──
   const renderSectionHeader = ({ section: { title } }) => (
-    <View style={{ marginBottom: 16, marginTop: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-        <View style={styles.dividerLine} />
-        <View style={styles.dividerTextContainer}>
-          <Text style={styles.dividerText}>{title}</Text>
-        </View>
-        <View style={styles.dividerLine} />
-      </View>
+    <View style={s.monthHeader}>
+      <View style={s.monthLine} />
+      <Text style={s.monthTitle}>{title}</Text>
+      <View style={s.monthLine} />
     </View>
   );
 
   const renderItem = ({ item: row }) => (
-    <View style={styles.cardsRow}>
-      {row.map(anime => (
-        <AnimeCard
-          key={anime._id || anime.animeId}
-          anime={anime}
-          cardWidth={(width - 48) / 2}
+    <View style={s.cardsRow}>
+      {row.map(a => (
+        <PremiumAnimeCard
+          key={a._id || a.animeId}
+          anime={a}
+          cardWidth={CARD_W}
           activeTab={activeTab}
-          onIncrement={handleIncrementEpisode}
-          onRating={handleRatingChange}
+          onIncrement={handleIncrement}
+          onDecrement={handleDecrement}
+          onRating={handleRating}
           onRemove={handleRemove}
-          onStatusPress={(a) => {
-            setSelectedAnimeForStatus(a);
-            setStatusModalVisible(true);
-          }}
-          onCardPress={(a) => {
-            const animeForModal = {
-              ...a,
-              id: a.animeId || a.id || a._id
-            };
-            setSelectedAnimeForDetails(animeForModal);
-            setDetailsModalVisible(true);
-            fetchAnimeDetails(a);
-          }}
-          styles={styles}
+          onStatusChange={handleStatusChange}
+          onCardPress={handleCardPress}
+          onFavoriteToggle={handleFavoriteToggle}
         />
       ))}
-      {/* Spacer for odd number of items to keep alignment left */}
-      {row.length === 1 && <View style={{ width: (width - 48) / 2 }} />}
+      {row.length === 1 && <View style={{ width: CARD_W }} />}
     </View>
   );
 
+  const currentList = animeList[activeTab] || [];
+  const showImporting = importing || !!importProgress;
+
   return (
-    <View style={styles.container}>
-
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Library</Text>
-        <TouchableOpacity style={styles.importBtn} onPress={handleFileSelect}>
-          {importing ? (
-            <ActivityIndicator size="small" color="#ffae00" />
-          ) : (
-            <>
-              <Ionicons name="document-text-outline" size={16} color="#ffae00" style={{ marginRight: 6 }} />
-              <Text style={styles.importBtnText}>Import</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        {["watching", "completed", "planned", "dropped"].map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabButton, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
+    <View style={s.root}>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <View>
+          <Text style={s.headerTitle}>My Anime List</Text>
+          <Text style={s.headerSub}>Track, rate, and organize your collection</Text>
+        </View>
+        <View style={s.headerActions}>
+          <TouchableOpacity style={s.addBtn} onPress={() => setShowAddModal(true)} activeOpacity={0.8}>
+            <Ionicons name="add" size={18} color="#ff5900" />
           </TouchableOpacity>
-        ))}
+          <TouchableOpacity style={s.importBtn} onPress={handleFileSelect} activeOpacity={0.8}>
+            {showImporting ? (
+              <ActivityIndicator size="small" color="#60a5fa" />
+            ) : (
+              <>
+                <Ionicons name="cloud-download-outline" size={15} color="#60a5fa" />
+                <Text style={s.importBtnText}>Import</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Main List */}
+      {/* ── Tabs ── */}
+      <View style={s.tabsWrap}>
+        <View style={s.tabsRow}>
+          {TAB_ORDER.map(tab => {
+            const cfg = STATUS_CONFIG[tab];
+            const isActive = activeTab === tab;
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[s.tabBtn, isActive && s.tabActive]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[s.tabLabel, isActive && s.tabLabelActive]}>{cfg.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* ── List ── */}
       {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
-          <Text style={styles.loadingText}>Loading your list...</Text>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#ff5900" />
+          <Text style={s.loadingText}>Loading your list...</Text>
         </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchAnimeList}>
-            <Text style={styles.retryText}>Retry</Text>
+        <View style={s.center}>
+          <Text style={s.errorText}>{error}</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={fetchAnimeList}>
+            <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <SectionList
-          style={styles.content}
+          style={s.list}
           sections={sections}
-          keyExtractor={(item, index) => item[0]._id || item[0].animeId || index.toString()}
+          keyExtractor={(item, idx) => (item[0]?._id || item[0]?.animeId || idx).toString()}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
-          contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 15 }}
+          contentContainerStyle={s.listContent}
           stickySectionHeadersEnabled={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff5900" colors={['#ff5900']} />}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="folder-open-outline" size={50} color="#666" />
-              <Text style={styles.emptyTitle}>No anime found</Text>
-              <Text style={styles.emptySub}>Start adding to your {activeTab} list!</Text>
+            <View style={s.emptyState}>
+              <Ionicons name="library-outline" size={48} color="rgba(255,255,255,0.15)" />
+              <Text style={s.emptyTitle}>Nothing here yet</Text>
+              <Text style={s.emptySub}>Add anime to your {STATUS_CONFIG[activeTab]?.label || activeTab} list</Text>
+              <TouchableOpacity style={s.emptyAddBtn} onPress={() => setShowAddModal(true)}>
+                <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                <Text style={s.emptyAddText}>Add Anime</Text>
+              </TouchableOpacity>
             </View>
           }
           initialNumToRender={6}
@@ -884,17 +723,8 @@ const ListScreen = ({ navigation }) => {
         />
       )}
 
-      <StatusModal
-        visible={statusModalVisible}
-        onClose={() => setStatusModalVisible(false)}
-        onSelect={(status) => {
-          if (selectedAnimeForStatus) {
-            handleStatusChange(selectedAnimeForStatus, status);
-          }
-          setStatusModalVisible(false);
-        }}
-        currentStatus={selectedAnimeForStatus?.status || activeTab}
-      />
+      {/* ── Modals ── */}
+      <AnimeModal visible={detailModalVisible} anime={selectedAnime} onClose={() => setDetailModalVisible(false)} onOpenAnime={(a) => setSelectedAnime(a)} />
 
       <ImportModal
         visible={showImportModal}
@@ -905,511 +735,335 @@ const ListScreen = ({ navigation }) => {
         setImportOption={setImportOption}
       />
 
-      <AnimeModal
-        visible={detailsModalVisible}
-        anime={selectedAnimeForDetails}
-        onClose={() => setDetailsModalVisible(false)}
-        onOpenAnime={(anime) => setSelectedAnimeForDetails(anime)}
+      <AddAnimeModal
+        visible={showAddModal}
+        onClose={() => { setShowAddModal(false); setAddQuery(''); setAddResults([]); }}
+        query={addQuery}
+        onSearch={handleAddSearch}
+        results={addResults}
+        loading={addLoading}
+        onAdd={handleAddToList}
       />
 
-      <BottomNav navigation={navigation} activeRoute="List" />
-    </View >
+      <BottomNav />
+    </View>
   );
 };
 
-// Helper Modals
-const StatusModal = ({ visible, onClose, onSelect, currentStatus }) => (
+// ─── Import Modal ─────────────────────────────────────────────────────
+
+const ImportModal = ({ visible, onClose, onConfirm, fileName, importOption, setImportOption }) => (
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-    <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Change Status</Text>
-        {['watching', 'completed', 'planned', 'dropped'].map(status => (
-          <TouchableOpacity
-            key={status}
-            style={[styles.modalOption, currentStatus === status && styles.modalOptionActive]}
-            onPress={() => onSelect(status)}
-          >
-            <Text style={[styles.modalOptionText, currentStatus === status && { color: '#FF5533' }]}>
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </Text>
-            {currentStatus === status && <Ionicons name="checkmark" size={20} color="#FF5533" />}
-          </TouchableOpacity>
-        ))}
-      </View>
+    <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity style={s.modalWrap} activeOpacity={1} onPress={() => {}}>
+        <View style={s.modalIconRow}>
+          <View style={s.importIconBox}>
+            <Ionicons name="cloud-download" size={24} color="#60a5fa" />
+          </View>
+        </View>
+        <Text style={s.modalTitle}>Import from MyAnimeList</Text>
+        <Text style={s.modalDesc}>Paste your MAL XML export file</Text>
+
+        {fileName && (
+          <View style={s.fileInfo}>
+            <Ionicons name="document-text" size={18} color="#fff" />
+            <Text style={s.fileName} numberOfLines={1}>{fileName}</Text>
+          </View>
+        )}
+
+        <Text style={s.optionLabel}>Import Options</Text>
+        <TouchableOpacity style={[s.radioRow, importOption === 'replace' && s.radioActive]} onPress={() => setImportOption('replace')}>
+          <View style={s.radioOuter}>{importOption === 'replace' && <View style={s.radioInner} />}</View>
+          <View><Text style={s.radioTitle}>Replace existing list</Text><Text style={s.radioDesc}>Clears current list first</Text></View>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.radioRow, importOption === 'merge' && s.radioActive]} onPress={() => setImportOption('merge')}>
+          <View style={s.radioOuter}>{importOption === 'merge' && <View style={s.radioInner} />}</View>
+          <View><Text style={s.radioTitle}>Merge with existing</Text><Text style={s.radioDesc}>Adds new entries only</Text></View>
+        </TouchableOpacity>
+
+        <View style={s.modalActions}>
+          <TouchableOpacity style={s.cancelBtn} onPress={onClose}><Text style={s.cancelText}>Cancel</Text></TouchableOpacity>
+          <TouchableOpacity style={s.confirmBtn} onPress={onConfirm}><Text style={s.confirmText}>Start Import</Text></TouchableOpacity>
+        </View>
+      </TouchableOpacity>
     </TouchableOpacity>
   </Modal>
 );
 
-const ImportModal = ({ visible, onClose, onConfirm, fileName, importOption, setImportOption }) => (
-  <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <View style={styles.modalOverlay}>
-      <View style={[styles.modalContent, { width: '90%', maxWidth: 400 }]}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Import MAL List</Text>
-          <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color="#fff" /></TouchableOpacity>
+// ─── Add Anime Modal ──────────────────────────────────────────────────
+
+const AddAnimeModal = ({ visible, onClose, query, onSearch, results, loading, onAdd }) => (
+  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity style={[s.modalWrap, s.addModalWide]} activeOpacity={1} onPress={() => {}}>
+        <View style={s.addModalHeader}>
+          <Text style={s.modalTitle}>Add Anime</Text>
+          <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="rgba(255,255,255,0.5)" /></TouchableOpacity>
+        </View>
+        <Text style={s.modalDesc}>Search for any anime to add to your collection</Text>
+
+        <View style={s.searchBox}>
+          <SearchSvg />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search for anime..."
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            value={query}
+            onChangeText={onSearch}
+            autoFocus
+          />
+          {query ? (
+            <TouchableOpacity onPress={() => onSearch('')}>
+              <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.3)" />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        <View style={styles.fileInfo}>
-          <View style={styles.fileIcon}><Ionicons name="document-text" size={24} color="#fff" /></View>
-          <Text style={styles.fileName}>{fileName || 'file.xml'}</Text>
-        </View>
-
-        <Text style={styles.optionLabel}>Import Options</Text>
-        <TouchableOpacity
-          style={[styles.radioOption, importOption === 'replace' && styles.radioActive]}
-          onPress={() => setImportOption('replace')}
-        >
-          <View style={styles.radioCircle}>
-            {importOption === 'replace' && <View style={styles.radioDot} />}
-          </View>
-          <View>
-            <Text style={styles.radioTitle}>Replace existing list</Text>
-            <Text style={styles.radioDesc}>Clears current list first</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.radioOption, importOption === 'merge' && styles.radioActive]}
-          onPress={() => setImportOption('merge')}
-        >
-          <View style={styles.radioCircle}>
-            {importOption === 'merge' && <View style={styles.radioDot} />}
-          </View>
-          <View>
-            <Text style={styles.radioTitle}>Merge with existing</Text>
-            <Text style={styles.radioDesc}>Adds new entries only</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.modalActions}>
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm}>
-            <Text style={styles.confirmText}>Start Import</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+        {loading ? (
+          <View style={s.searchLoading}><ActivityIndicator color="#ff5900" /><Text style={s.searchLoadingText}>Searching...</Text></View>
+        ) : (
+          <ScrollView style={s.resultsList} showsVerticalScrollIndicator={false}>
+            {results.map(item => (
+              <View key={item.mal_id} style={s.resultCard}>
+                <Image source={{ uri: item.images?.jpg?.image_url }} style={s.resultImg} />
+                <View style={s.resultInfo}>
+                  <Text style={s.resultTitle} numberOfLines={2}>{item.title_english || item.title}</Text>
+                  <Text style={s.resultMeta}>
+                    {item.type || 'TV'} &middot; {item.episodes || '?'} eps &middot; ⭐ {(item.score || '?')}/10
+                  </Text>
+                  <TouchableOpacity style={s.resultAddBtn} onPress={() => onAdd(item)}>
+                    <Text style={s.resultAddText}>Add to List</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+            {query && !loading && results.length === 0 && (
+              <Text style={s.noResults}>No results found</Text>
+            )}
+          </ScrollView>
+        )}
+      </TouchableOpacity>
+    </TouchableOpacity>
   </Modal>
 );
 
+// ─── Styles ───────────────────────────────────────────────────────────
 
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#030712', paddingTop: Platform.OS === 'ios' ? 56 : 36 },
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#030712',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-  },
-
+  // Header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingHorizontal: 16, paddingBottom: 12,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#fff',
-    fontFamily: 'OutfitRegular',
-    letterSpacing: 0.5,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 14,
-    padding: 4,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-  },
-  activeTab: {
-    backgroundColor: '#ffae00',
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontFamily: 'OutfitRegular',
-  },
-  activeTabText: {
-    color: '#000000',
+  headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800', fontFamily: 'OutfitRegular', letterSpacing: 0.3 },
+  headerSub: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontFamily: 'OutfitRegular', marginTop: 2 },
+  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  addBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: 'rgba(255,89,0,0.1)', borderWidth: 1, borderColor: 'rgba(255,89,0,0.25)',
+    alignItems: 'center', justifyContent: 'center',
   },
   importBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 174, 0, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 174, 0, 0.15)',
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: 7, paddingHorizontal: 12, borderRadius: 10,
+    backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.25)',
   },
-  importBtnText: {
-    color: '#ffae00',
-    fontWeight: '700',
-    fontSize: 12,
-    fontFamily: 'OutfitRegular',
+  importBtnText: { color: '#60a5fa', fontSize: 11, fontWeight: '700', fontFamily: 'OutfitRegular' },
+
+  // Tabs
+  tabsWrap: {
+    marginHorizontal: 16, marginBottom: 12,
+    backgroundColor: 'rgba(12,14,28,0.85)', borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    padding: 4,
   },
-  content: {
-    flex: 1,
+  tabsRow: { flexDirection: 'row', gap: 4 },
+  tabBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, paddingHorizontal: 2, borderRadius: 12,
   },
-  groupContainer: {
-    marginBottom: 30,
-    paddingHorizontal: 20
+  tabActive: { backgroundColor: 'rgba(255,89,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,89,0,0.2)' },
+  tabLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', fontFamily: 'OutfitRegular', textAlign: 'center' },
+  tabLabelActive: { color: '#ff5900', fontWeight: '700' },
+
+  // List
+  list: { flex: 1 },
+  listContent: { paddingBottom: 100, paddingHorizontal: 12 },
+
+  // Month Header
+  monthHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    marginBottom: 30, marginTop: 16, paddingHorizontal: 4,
   },
-  groupHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-    position: 'relative'
+  monthLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+  monthTitle: {
+    color: '#fff', fontSize: 18, fontWeight: '800',
+    fontFamily: 'OutfitRegular', marginHorizontal: 14, letterSpacing: 0.5,
+    textShadowColor: 'rgba(255,89,0,0.3)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10,
   },
-  groupTitle: {
-    color: '#FF775C',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    backgroundColor: '#030712',
-    paddingHorizontal: 20,
-    zIndex: 2
+
+
+  cardsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+
+  // Card
+  cardOuter: {
+    borderRadius: 16, overflow: 'hidden', backgroundColor: '#070a13',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
-  groupLine: {
-    height: 2,
-    width: '100%',
-    position: 'absolute',
-    top: 15, // center of text approx
-    zIndex: 1
+  cardTouch: { flex: 1 },
+
+  cardImage: { ...StyleSheet.absoluteFillObject },
+  fullFade: { ...StyleSheet.absoluteFillObject },
+
+  badgesRow: {
+    position: 'absolute', top: 8, left: 8, right: 8,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 10,
   },
-  cardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-    paddingHorizontal: 15
+  favBtn: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: 'rgba(255,42,95,0.25)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  cardContainer: {
-    height: 280,
-    // Width set dynamically
-    borderRadius: 16,
-    backgroundColor: '#111',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-    marginBottom: 15
+  statusPill: {
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, maxWidth: '60%',
   },
-  cardPosterContainer: {
-    flex: 1,
-    position: 'relative'
-  },
-  posterImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  imageWrapper: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  darkOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Dark overlay for unwatched portion
-    zIndex: 1,
-  },
-  colorOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: '100%',
-    overflow: 'hidden',
-    zIndex: 2
-  },
-  cardOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 15,
-    zIndex: 5
-  },
-  titleBlurWrapper: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 5,
-    backgroundColor: 'rgba(0,0,0,0.3)', // Fallback / extra dim
-    width: '110%',
-    alignSelf: 'center',
+  statusPillText: { fontSize: 8, fontWeight: '700', letterSpacing: 0.5 },
+
+  cardBody: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 8, paddingBottom: 8, paddingTop: 20,
   },
   cardTitle: {
-    color: '#ff9a00',
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: 'OutfitRegular',
-    letterSpacing: 0.5,
-    marginBottom: 0,
-    marginTop: 2,
-    lineHeight: 18,
-    textAlign: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    textShadowColor: 'rgba(0,0,0,0.95)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
+    color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'OutfitRegular',
+    textAlign: 'center', lineHeight: 16, marginBottom: 6,
   },
-  episodeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4063fd',
-    marginRight: 8
-  },
-  episodeText: {
-    color: '#fff',
-    fontSize: 14,
-    marginRight: 10
-  },
-  plusBtn: {
-    backgroundColor: '#667eea',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10
-  },
-  plusBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold'
-  },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: '#444',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 10
-  },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  starsRow: {
-    flexDirection: 'row',
-    gap: 2
-  },
-  badgeContainer: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    zIndex: 10
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold'
-  },
-  loadingContainer: {
-    padding: 50,
-    alignItems: 'center'
-  },
-  loadingText: {
-    color: '#888',
-    marginTop: 10
-  },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 50,
-    opacity: 0.7
-  },
-  emptyTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 10
-  },
-  emptySub: {
-    color: '#666',
-    marginTop: 5
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  modalContent: {
-    backgroundColor: '#1a1f38',
-    padding: 20,
-    borderRadius: 20,
-    width: 300,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center'
-  },
-  modalOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)'
-  },
-  modalOptionActive: {
-    backgroundColor: 'rgba(255, 85, 51, 0.1)',
-    marginHorizontal: -20,
-    paddingHorizontal: 20
-  },
-  modalOptionText: {
-    color: '#ccc',
-    fontSize: 16
-  },
-  // Import Modal Specifics
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20
-  },
-  fileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20
-  },
-  fileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#4f46e5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10
-  },
-  fileName: {
-    color: '#fff',
-    flex: 1
-  },
-  optionLabel: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginBottom: 10
-  },
-  radioOption: {
-    flexDirection: 'row',
-    padding: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    marginBottom: 10,
-    alignItems: 'center'
-  },
-  radioActive: {
-    borderColor: '#FF5533',
-    backgroundColor: 'rgba(255, 85, 51, 0.05)'
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 15
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FF5533'
-  },
-  radioTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14
-  },
-  radioDesc: {
-    color: '#888',
-    fontSize: 12
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10
-  },
-  cancelBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center'
-  },
-  cancelText: { color: '#ccc' },
-  confirmBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: '#FF5533',
-    alignItems: 'center'
-  },
-  confirmText: { color: '#fff', fontWeight: 'bold' },
 
-  // Divider Styles for List Segregation
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#FF775C',
+  // Progress
+  progressBox: {
+    backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 10, padding: 6, marginBottom: 4,
   },
-  dividerTextContainer: {
-    paddingHorizontal: 16,
+  progressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  epBtn: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(255,89,0,0.1)', borderWidth: 1, borderColor: 'rgba(255,89,0,0.3)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  dividerText: {
-    color: '#FF775C',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+  epInfo: { alignItems: 'center' },
+  epLabel: { color: 'rgba(255,255,255,0.35)', fontSize: 6, fontWeight: '600', letterSpacing: 0.5, fontFamily: 'OutfitRegular' },
+  epValue: { color: '#fff', fontSize: 10, fontWeight: '700', fontFamily: 'OutfitRegular' },
+  progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginTop: 4 },
+  progressFill: { height: '100%', borderRadius: 2 },
+
+  // Footer
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  ratingSection: { flex: 1 },
+  ratingLabel: { color: 'rgba(255,255,255,0.3)', fontSize: 7, fontWeight: '600', letterSpacing: 0.5, fontFamily: 'OutfitRegular', marginBottom: 2 },
+  starRow: {},
+  removeBtn: { padding: 6 },
+
+  // Menu
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject, zIndex: 50,
+    justifyContent: 'flex-end', alignItems: 'center',
   },
-  cardsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15
-  }
+  menuDropdown: {
+    backgroundColor: '#0d1222', borderRadius: 14,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 4, marginBottom: 40, width: CARD_W - 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.6, shadowRadius: 16, elevation: 12,
+  },
+  menuItem: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 10, paddingHorizontal: 14,
+  },
+  menuItemText: { fontSize: 12, fontWeight: '600', fontFamily: 'OutfitRegular' },
+  menuDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 14 },
+  menuRemoveItem: { paddingVertical: 10, paddingHorizontal: 14 },
+  menuRemoveText: { fontSize: 12, fontWeight: '600', color: '#ef4444', fontFamily: 'OutfitRegular' },
+
+  // States
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: 'rgba(255,255,255,0.4)', marginTop: 12, fontFamily: 'OutfitRegular' },
+  errorText: { color: '#ef4444', fontFamily: 'OutfitRegular' },
+  retryBtn: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 20, backgroundColor: 'rgba(255,89,0,0.15)', borderRadius: 10 },
+  retryText: { color: '#ff5900', fontWeight: '700', fontFamily: 'OutfitRegular' },
+  emptyState: { alignItems: 'center', marginTop: 48 },
+  emptyTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 16, fontWeight: '700', marginTop: 12, fontFamily: 'OutfitRegular' },
+  emptySub: { color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 4, fontFamily: 'OutfitRegular' },
+  emptyAddBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 16, paddingVertical: 8, paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,89,0,0.12)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,89,0,0.25)',
+  },
+  emptyAddText: { color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: 'OutfitRegular' },
+
+  // Modal shared
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+  modalWrap: {
+    width: '88%', maxWidth: 400, maxHeight: '80%',
+    backgroundColor: '#0d1222', borderRadius: 24, padding: 24,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  addModalWide: { maxWidth: 500, maxHeight: '85%' },
+  modalIconRow: { alignItems: 'center', marginBottom: 12 },
+  importIconBox: {
+    width: 56, height: 56, borderRadius: 16,
+    backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center', fontFamily: 'OutfitRegular' },
+  modalDesc: { color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: 6, marginBottom: 16, fontFamily: 'OutfitRegular' },
+
+  // Import Modal
+  fileInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 10, marginBottom: 16 },
+  fileName: { color: '#fff', fontSize: 12, flex: 1, fontFamily: 'OutfitRegular' },
+  optionLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700', marginBottom: 8, fontFamily: 'OutfitRegular' },
+  radioRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12, marginBottom: 8,
+  },
+  radioActive: { borderColor: '#ff5900', backgroundColor: 'rgba(255,89,0,0.05)' },
+  radioOuter: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  radioInner: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#ff5900' },
+  radioTitle: { color: '#fff', fontSize: 13, fontWeight: '600', fontFamily: 'OutfitRegular' },
+  radioDesc: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'OutfitRegular' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center' },
+  cancelText: { color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontFamily: 'OutfitRegular' },
+  confirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: '#3b82f6', alignItems: 'center' },
+  confirmText: { color: '#fff', fontWeight: '700', fontFamily: 'OutfitRegular' },
+
+  // Add Modal
+  addModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  searchBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16,
+  },
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, fontFamily: 'OutfitRegular', padding: 0 },
+  searchLoading: { alignItems: 'center', paddingVertical: 24 },
+  searchLoadingText: { color: 'rgba(255,255,255,0.4)', marginTop: 8, fontFamily: 'OutfitRegular' },
+  resultsList: { maxHeight: 360 },
+  resultCard: {
+    flexDirection: 'row', gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14, padding: 10, marginBottom: 8,
+  },
+  resultImg: { width: 56, height: 78, borderRadius: 8, backgroundColor: '#111' },
+  resultInfo: { flex: 1, justifyContent: 'space-between' },
+  resultTitle: { color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: 'OutfitRegular' },
+  resultMeta: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'OutfitRegular' },
+  resultAddBtn: {
+    alignSelf: 'flex-start', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 8,
+    backgroundColor: 'rgba(255,89,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,89,0,0.25)',
+  },
+  resultAddText: { color: '#ff5900', fontSize: 10, fontWeight: '700', fontFamily: 'OutfitRegular' },
+  noResults: { color: 'rgba(255,255,255,0.3)', textAlign: 'center', paddingVertical: 24, fontFamily: 'OutfitRegular' },
 });
 
 export default ListScreen;

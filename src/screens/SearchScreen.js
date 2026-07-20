@@ -9,7 +9,6 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
-  Dimensions,
   Animated,
   Keyboard,
 } from 'react-native';
@@ -17,11 +16,9 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import AnimeModal from '../components/AnimeModal';
 import BottomNav from '../components/BottomNav';
-import AnimatedAnimeCard from '../components/AnimatedAnimeCard';
+import AnimeCardPremium from '../components/AnimeCardPremium';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 60) / 2;
-const CARD_HEIGHT = CARD_WIDTH * 1.45;
+
 
 const ANIME_GENRES = [
   "Action",
@@ -288,6 +285,7 @@ const SearchScreen = ({ navigation }) => {
         bannerImage: anime.bannerImage,
         startDate: anime.startDate,
         endDate: anime.endDate,
+        year: anime.startDate?.year,
         description: anime.description,
         episodes: anime.episodes,
         format: anime.format,
@@ -388,9 +386,10 @@ const SearchScreen = ({ navigation }) => {
 
   const renderAnimeCard = ({ item, index }) => {
     return (
-      <AnimatedAnimeCard
-        item={item}
+      <AnimeCardPremium
+        anime={item}
         index={index}
+        isGrid
         onPress={(anime) => {
           setSelectedAnime(anime);
           setModalVisible(true);
@@ -684,7 +683,7 @@ const SearchScreen = ({ navigation }) => {
           }
           onEndReached={loadMore}
           onEndReachedThreshold={2}
-          columnWrapperStyle={{ justifyContent: 'space-between' }}
+          columnWrapperStyle={{ gap: 14 }}
           ListFooterComponent={
             searchLoading ? (
               <View style={{ alignItems: 'center', marginVertical: 20 }}>
@@ -885,72 +884,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 100,
   },
-  animeCard: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    marginRight: 20,
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'beige',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  cardInner: {
-    flex: 1,
-    position: 'relative',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 20,
-  },
-  gradientOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  titleOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 8,
-    paddingBottom: 12,
-    paddingHorizontal: 10,
-    backgroundColor: 'transparent',
-    zIndex: 1,
-  },
-  cardTitle: {
-    fontFamily: 'OutfitRegular',
-    fontWeight: '600',
-    letterSpacing: 1,
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    color: '#ff6a00',
-    textShadowColor: 'rgba(190, 79, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-    includeFontPadding: true,
-    textAlignVertical: 'center',
-    padding: 0,
-    margin: 0,
-  },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

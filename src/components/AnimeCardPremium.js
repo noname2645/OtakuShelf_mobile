@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
   Animated,
   Dimensions,
@@ -11,23 +10,23 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import Svg, { Path, Polyline, Line, Rect, Polygon } from 'react-native-svg';
+import { usePreferences } from '../contexts/PreferenceContext';
 
 const { width } = Dimensions.get('window');
 
-// Card dimensions matching design.md: Desktop 250×380 → scaled to mobile
 export const CARD_WIDTH = Math.min(width * 0.44, 210);
 export const CARD_HEIGHT = CARD_WIDTH * 1.52;
 
-// ─── Rating Star Icon ─────────────────────────────────────────────────────────
+const blurhash = 'L5H2EC=PM+yV0gofqwt7jrRjwfRj';
+
 const StarIcon = () => (
   <Svg width={10} height={10} viewBox="0 0 24 24" fill="#ff5900">
     <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
   </Svg>
 );
 
-// ─── Heart Icon ───────────────────────────────────────────────────────────────
 const HeartIcon = ({ filled }) => (
   <Svg width={15} height={15} viewBox="0 0 24 24"
     fill={filled ? '#ff2a5f' : 'none'}
@@ -38,7 +37,6 @@ const HeartIcon = ({ filled }) => (
   </Svg>
 );
 
-// ─── Watchlist Icon ───────────────────────────────────────────────────────────
 const WatchlistIcon = ({ active }) => (
   <Svg width={15} height={15} viewBox="0 0 24 24"
     fill={active ? '#ff5900' : 'none'}
@@ -49,7 +47,6 @@ const WatchlistIcon = ({ active }) => (
   </Svg>
 );
 
-// ─── Share Icon ───────────────────────────────────────────────────────────────
 const ShareIcon = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={2}>
     <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -58,7 +55,6 @@ const ShareIcon = () => (
   </Svg>
 );
 
-// ─── Cal Icon ─────────────────────────────────────────────────────────────────
 const CalIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
     <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -68,7 +64,6 @@ const CalIcon = () => (
   </Svg>
 );
 
-// ─── Episodes Icon ────────────────────────────────────────────────────────────
 const EpisodesIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
     <Polygon points="23 7 16 12 23 17 23 7" />
@@ -76,7 +71,6 @@ const EpisodesIcon = () => (
   </Svg>
 );
 
-// ─── Genre Icon ───────────────────────────────────────────────────────────────
 const GenreIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
     <Line x1="8" y1="6" x2="21" y2="6" />
@@ -88,32 +82,19 @@ const GenreIcon = () => (
   </Svg>
 );
 
-// ─── AnimeCardPremium ─────────────────────────────────────────────────────────
 const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const borderColorAnim = useRef(new Animated.Value(0)).current;
 
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isWatchlisted, setIsWatchlisted] = useState(false);
+  const { isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded } = usePreferences();
 
-  // Load persisted states
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 380,
-      delay: Math.min(index * 45, 350),
+      duration: 200,
+      delay: Math.min(index * 30, 200),
       useNativeDriver: true,
     }).start();
-
-    if (anime?.id) {
-      AsyncStorage.getItem(`watchlist_${anime.id}`).then(v => {
-        if (v === 'true') setIsWatchlisted(true);
-      });
-      AsyncStorage.getItem(`fav_${anime.id}`).then(v => {
-        if (v === 'true') setIsFavorite(true);
-      });
-    }
   }, []);
 
   const handlePressIn = useCallback(() => {
@@ -124,19 +105,15 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
   }, []);
 
-  const toggleWatchlist = useCallback(async (e) => {
+  const handleToggleWatchlist = useCallback((e) => {
     e.stopPropagation?.();
-    const next = !isWatchlisted;
-    setIsWatchlisted(next);
-    if (anime?.id) await AsyncStorage.setItem(`watchlist_${anime.id}`, String(next));
-  }, [isWatchlisted, anime?.id]);
+    if (anime?.id) toggleWatchlist(String(anime.id));
+  }, [anime?.id, toggleWatchlist]);
 
-  const toggleFavorite = useCallback(async (e) => {
+  const handleToggleFavorite = useCallback((e) => {
     e.stopPropagation?.();
-    const next = !isFavorite;
-    setIsFavorite(next);
-    if (anime?.id) await AsyncStorage.setItem(`fav_${anime.id}`, String(next));
-  }, [isFavorite, anime?.id]);
+    if (anime?.id) toggleFavorite(String(anime.id));
+  }, [anime?.id, toggleFavorite]);
 
   const handleShare = useCallback(async (e) => {
     e.stopPropagation?.();
@@ -159,6 +136,8 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
 
   const cardW = isGrid ? undefined : CARD_WIDTH;
   const cardH = isGrid ? CARD_WIDTH * 1.52 : CARD_HEIGHT;
+  const fav = loaded && anime?.id ? isFavorite(String(anime.id)) : false;
+  const wl = loaded && anime?.id ? isWatchlisted(String(anime.id)) : false;
 
   return (
     <Animated.View
@@ -175,21 +154,25 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
         onPress={() => anime && onPress(anime)}
         style={styles.cardTouch}
       >
-        {/* Poster Image */}
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.cardImage}
+            contentFit="cover"
+            placeholder={{ blurhash }}
+            cachePolicy="memory-disk"
+            transition={200}
+          />
         ) : (
           <View style={[styles.cardImage, styles.noImage]} />
         )}
 
-        {/* Poster fade gradient */}
         <LinearGradient
           colors={['transparent', 'rgba(12,16,28,0.35)', 'rgba(12,16,28,0.8)', '#0c101c']}
           locations={[0, 0.25, 0.55, 1]}
           style={styles.posterFade}
         />
 
-        {/* ── Card Header (rating + bookmark) ── */}
         <View style={styles.cardHeader}>
           {score ? (
             <View style={styles.ratingBadge}>
@@ -199,24 +182,20 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
           ) : <View />}
           <TouchableOpacity
             style={styles.bookmarkBtn}
-            onPress={toggleFavorite}
+            onPress={handleToggleFavorite}
             activeOpacity={0.8}
           >
-            <HeartIcon filled={isFavorite} />
+            <HeartIcon filled={fav} />
           </TouchableOpacity>
         </View>
 
-        {/* ── Card Body ── */}
         <View style={styles.cardBody}>
-          {/* Format tag */}
           <View style={styles.formatTag}>
             <Text style={styles.formatTagText}>{format.toUpperCase()}</Text>
           </View>
 
-          {/* Title */}
           <Text style={styles.mainTitle} numberOfLines={2}>{anime.title?.toUpperCase?.() || anime.title}</Text>
 
-          {/* Meta row — 3 columns */}
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
               <CalIcon />
@@ -237,11 +216,10 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
             </View>
           </View>
 
-          {/* Action row */}
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={toggleWatchlist} activeOpacity={0.75}>
-              <WatchlistIcon active={isWatchlisted} />
-              <Text style={[styles.actionLabel, isWatchlisted && styles.actionActive]}>WATCHLIST</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleToggleWatchlist} activeOpacity={0.75}>
+              <WatchlistIcon active={wl} />
+              <Text style={[styles.actionLabel, wl && styles.actionActive]}>WATCHLIST</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={handleShare} activeOpacity={0.75}>
               <ShareIcon />
@@ -255,7 +233,6 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
 });
 
 const styles = StyleSheet.create({
-  // ── Container ──
   cardOuter: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
@@ -276,13 +253,11 @@ const styles = StyleSheet.create({
   },
   cardGrid: {
     flex: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   cardTouch: { flex: 1 },
-
-  // ── Image ──
   cardImage: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
   },
   noImage: {
     backgroundColor: '#0f1428',
@@ -290,8 +265,6 @@ const styles = StyleSheet.create({
   posterFade: {
     ...StyleSheet.absoluteFillObject,
   },
-
-  // ── Header ──
   cardHeader: {
     position: 'absolute',
     top: 10,
@@ -329,8 +302,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // ── Body ──
   cardBody: {
     position: 'absolute',
     bottom: 0,
@@ -398,8 +369,6 @@ const styles = StyleSheet.create({
     height: 20,
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
-
-  // ── Actions ──
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -429,8 +398,6 @@ const styles = StyleSheet.create({
   actionActive: {
     color: '#ff5900',
   },
-
 });
 
 export default AnimeCardPremium;
-

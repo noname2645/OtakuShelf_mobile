@@ -307,13 +307,6 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
         ]}
         pointerEvents="box-none"
       >
-        {/* Genres */}
-        {genres ? (
-          <Text style={styles.heroGenres}>
-            {'Genres: '}{genres}
-          </Text>
-        ) : null}
-
         {/* Title */}
         <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
 
@@ -330,6 +323,13 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
         {/* Description */}
         {desc ? (
           <Text style={styles.heroDesc} numberOfLines={3}>{desc}</Text>
+        ) : null}
+
+        {/* Genres */}
+        {genres ? (
+          <Text style={styles.heroGenres}>
+            {'Genres: '}{genres}
+          </Text>
         ) : null}
 
         {/* "More Details" button */}
@@ -544,10 +544,10 @@ const HomeScreen = ({ navigation }) => {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* ── Sticky blur header background ── */}
-      <Animated.View style={[styles.stickyHeaderBg, { opacity: headerBgOpacity }]}>
+      {/* ── Top scroll fade (ChatGPT style) ── */}
+      <Animated.View style={[styles.scrollFade, { opacity: headerBgOpacity }]} pointerEvents="none">
         <LinearGradient
-          colors={['rgba(3,7,18,0.98)', 'rgba(3,7,18,0.85)']}
+          colors={['#030712', 'transparent']}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -712,6 +712,10 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0,
     height: 90, zIndex: 20,
   },
+  scrollFade: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: 170, zIndex: 25,
+  },
   topBar: {
     position: 'absolute', top: 0, left: 0, right: 0,
     zIndex: 30, paddingTop: 46, paddingBottom: 10,
@@ -844,8 +848,8 @@ const styles = StyleSheet.create({
   // ── Dots ──
   dotsRow: {
     position: 'absolute', bottom: '14%', left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'flex-start',
-    alignItems: 'center', gap: 7, paddingLeft: 18,
+    flexDirection: 'row', justifyContent: 'center',
+    alignItems: 'center', gap: 7,
   },
   dot: {
     width: 7, height: 7, borderRadius: 4,

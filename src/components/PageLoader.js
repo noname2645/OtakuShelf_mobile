@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect, Line } from 'react-native-svg';
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('screen');
 
 // ─── ToriiGate SVG ───────────────────────────────────────────────────────────
 const ToriiGate = ({ size = 80, color = 'rgba(255, 115, 0, 0.5)' }) => (
@@ -49,17 +49,17 @@ const PageLoader = ({ onFinish }) => {
   const FULL_TAGLINE = 'Your anime universe, curated.';
 
   useEffect(() => {
-    // ── Phase 1: Curtains slide IN (0–700ms)
+    // ── Phase 1: Curtains slide IN (0–400ms)
     Animated.parallel([
       Animated.timing(leftCurtain, {
         toValue: 0,
-        duration: 700,
+        duration: 400,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(rightCurtain, {
         toValue: 0,
-        duration: 700,
+        duration: 400,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -68,71 +68,71 @@ const PageLoader = ({ onFinish }) => {
       Animated.parallel([
         Animated.spring(logoScale, {
           toValue: 1,
-          tension: 60,
-          friction: 7,
+          tension: 100,
+          friction: 8,
           useNativeDriver: true,
         }),
         Animated.timing(logoTranslateY, {
           toValue: 0,
-          duration: 400,
+          duration: 250,
           easing: Easing.out(Easing.back(1.5)),
           useNativeDriver: true,
         }),
         Animated.timing(logoOpacity, {
           toValue: 1,
-          duration: 350,
+          duration: 200,
           useNativeDriver: true,
         }),
       ]).start();
 
-      // ── Typewriter after 200ms delay
+      // ── Typewriter after 100ms delay
       let charIndex = 0;
       const typeInterval = setTimeout(() => {
         const interval = setInterval(() => {
           charIndex++;
           setTagline(FULL_TAGLINE.substring(0, charIndex));
           if (charIndex >= FULL_TAGLINE.length) clearInterval(interval);
-        }, 25);
-      }, 200);
+        }, 18);
+      }, 100);
 
-      // ── Phase 2: Curtains SPLIT apart at 1400ms
+      // ── Phase 2: Curtains SPLIT apart at 800ms
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(leftCurtain, {
             toValue: -width,
-            duration: 700,
+            duration: 500,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(rightCurtain, {
             toValue: width,
-            duration: 700,
+            duration: 500,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(logoScale, {
             toValue: 0.85,
-            duration: 600,
+            duration: 400,
             useNativeDriver: true,
           }),
           Animated.timing(logoOpacity, {
             toValue: 0,
-            duration: 500,
+            duration: 350,
             useNativeDriver: true,
           }),
         ]).start();
-      }, 1400);
+      }, 800);
 
-      // ── Phase 3: Overlay fades at 2100ms
+      // ── Phase 3: Overlay fades at 1300ms
       setTimeout(() => {
         Animated.timing(overlayOpacity, {
           toValue: 0,
-          duration: 300,
+          duration: 200,
           useNativeDriver: true,
         }).start(() => {
           onFinish && onFinish();
         });
-      }, 2100);
+      }, 1300);
 
       return () => clearTimeout(typeInterval);
     });
@@ -213,11 +213,11 @@ const PageLoader = ({ onFinish }) => {
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width,
-    height,
+    ...StyleSheet.absoluteFillObject,
+    width: width + 2,
+    height: height + 2,
+    marginLeft: -1,
+    marginTop: -1,
     zIndex: 99999,
     backgroundColor: '#030712',
     justifyContent: 'center',
@@ -227,17 +227,17 @@ const styles = StyleSheet.create({
   // ── Curtains ──
   curtainLeft: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: width / 2 + 2,
-    height,
+    top: -1,
+    left: -1,
+    width: width / 2 + 3,
+    height: height + 2,
   },
   curtainRight: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: width / 2 + 2,
-    height,
+    top: -1,
+    right: -1,
+    width: width / 2 + 3,
+    height: height + 2,
   },
   curtainInner: {
     flex: 1,
