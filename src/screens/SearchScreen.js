@@ -46,6 +46,9 @@ const ANIME_SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"];
 
 const DEFAULT_STATUS = ["FINISHED", "RELEASING"];
 
+const COLUMN_WRAPPER = { gap: 14 };
+const KEY_EXTRACTOR = (item) => String(item.id);
+
 const FILTER_OPTIONS = {
   type: ["TV", "MOVIE", "OVA", "ONA", "SPECIAL"],
   status: ["FINISHED", "RELEASING", "TBA"]
@@ -588,19 +591,19 @@ const SearchScreen = ({ navigation }) => {
       <Animated.FlatList
           data={searchResults}
           renderItem={renderAnimeCard}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
+          keyExtractor={KEY_EXTRACTOR}
           numColumns={2}
           contentContainerStyle={styles.listContent}
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          windowSize={3}
-          removeClippedSubviews={false}
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={true}
           overScrollMode="never"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollYSearch } } }],
-            { useNativeDriver: false }
+            { useNativeDriver: true }
           )}
           onScrollBeginDrag={() => {
             Keyboard.dismiss();
@@ -618,7 +621,7 @@ const SearchScreen = ({ navigation }) => {
               )}
             </View>
           }
-          columnWrapperStyle={{ gap: 14 }}
+          columnWrapperStyle={COLUMN_WRAPPER}
         />
       )}
 

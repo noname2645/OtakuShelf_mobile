@@ -4,13 +4,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   StyleSheet,
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
+import AnimeCardPremium from './AnimeCardPremium';
 
 const anilistClient = axios.create({
   baseURL: 'https://graphql.anilist.co',
@@ -250,40 +251,21 @@ const RelatedSection = ({ animeId, animeMalId, onSelect }) => {
       {Object.entries(grouped).map(([relationType, animeList]) => (
         <View key={relationType} style={styles.group}>
           <Text style={styles.groupTitle}>{formatRelationType(relationType)}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {animeList.map((animeItem, index) => {
-              const image =
-                animeItem.coverImage?.extraLarge ||
-                animeItem.coverImage?.large ||
-                animeItem.coverImage?.medium ||
-                'https://via.placeholder.com/300x450';
-              return (
-                <TouchableOpacity
-                  key={`${animeItem.id || index}-${relationType}`}
-                  style={styles.card}
-                  activeOpacity={0.8}
-                  onPress={() => onSelect && onSelect({
-                    ...animeItem,
-                    startDate: animeItem.startDate,
-                    endDate: animeItem.endDate,
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recsScroll}>
+            {animeList.map((animeItem, index) => (
+              <View key={`${animeItem.id || index}-${relationType}`} style={styles.recCard}>
+                <AnimeCardPremium
+                  anime={animeItem}
+                  index={index}
+                  onPress={(item) => onSelect && onSelect({
+                    ...item,
+                    startDate: item.startDate,
+                    endDate: item.endDate,
                   })}
-                >
-                  <View style={styles.cardInner}>
-                    <Image source={{ uri: image }} style={styles.cardImage} resizeMode="cover" />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
-                      locations={[0, 0.3, 0.7, 1]}
-                      style={styles.gradientOverlay}
-                    />
-                    <View style={styles.titleOverlay}>
-                      <Text style={styles.cardTitle} numberOfLines={2}>
-                        {animeItem.title || 'Untitled'}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                  isGrid
+                />
+              </View>
+            ))}
           </ScrollView>
         </View>
       ))}
@@ -304,68 +286,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  card: {
+  recsScroll: {
+    paddingRight: 10,
+  },
+  recCard: {
     width: 140,
-    marginRight: 12,
+    height: 213,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'beige',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  cardInner: {
-    height: 190,
-    position: 'relative',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 20,
-  },
-  gradientOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  titleOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 8,
-    paddingBottom: 12,
-    paddingHorizontal: 10,
-    zIndex: 1,
-  },
-  cardTitle: {
-    color: '#ff6a00',
-    fontFamily: 'OutfitRegular',
-    fontWeight: '600',
-    letterSpacing: 1,
-    fontSize: isMobile ? 14 : 16,
-    textAlign: 'center',
-    lineHeight: isMobile ? 20 : 22,
-    textShadowColor: 'rgba(190, 79, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-    includeFontPadding: true,
-    textAlignVertical: 'center',
-    margin: 0,
-    padding: 0,
+    marginRight: 12,
   },
   loading: {
     paddingVertical: 16,

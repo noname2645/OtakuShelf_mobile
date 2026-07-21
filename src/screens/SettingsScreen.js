@@ -10,12 +10,12 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
-  Image,
   Dimensions,
   Platform,
   Share,
   KeyboardAvoidingView
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -147,19 +147,22 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
-  // Toggle handler
+  const toggleSaveRef = useRef({});
   const handleToggle = (category, key) => {
-    const newSettings = { ...settings };
-    newSettings[category][key] = !newSettings[category][key];
-    setSettings(newSettings);
-    saveSettings(category, { [key]: newSettings[category][key] });
+    setSettings(prev => {
+      const next = { ...prev };
+      next[category] = { ...next[category], [key]: !next[category][key] };
+      return next;
+    });
+    const k = `${category}_${key}`;
+    clearTimeout(toggleSaveRef.current[k]);
+    toggleSaveRef.current[k] = setTimeout(() => {
+      saveSettings(category, { [key]: !settings[category][key] });
+    }, 500);
   };
 
-  // Select handler
   const handleSelect = (category, key, value) => {
-    const newSettings = { ...settings };
-    newSettings[category][key] = value;
-    setSettings(newSettings);
+    setSettings(prev => ({ ...prev, [category]: { ...prev[category], [key]: value } }));
     saveSettings(category, { [key]: value });
   };
 
@@ -465,7 +468,7 @@ export default function SettingsScreen({ navigation }) {
                     
                     {mfaSetup.qrCodeUrl ? (
                       <View style={styles.qrContainer}>
-                        <Image source={{ uri: mfaSetup.qrCodeUrl }} style={styles.qrImage} />
+                        <Image source={{ uri: mfaSetup.qrCodeUrl }} style={styles.qrImage} contentFit="contain" cachePolicy="memory-disk" />
                       </View>
                     ) : null}
 
@@ -669,7 +672,7 @@ export default function SettingsScreen({ navigation }) {
         </Text>
         <View style={styles.profilePreview}>
           {user?.photo ? (
-            <Image source={{ uri: user.photo }} style={styles.profileAvatar} />
+            <Image source={{ uri: user.photo }} style={styles.profileAvatar} contentFit="cover" cachePolicy="memory-disk" />
           ) : (
             <View style={styles.profileAvatarPlaceholder}>
               <Text style={styles.profileAvatarText}>{(user?.name || user?.email || 'U')[0].toUpperCase()}</Text>

@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -302,14 +303,14 @@ export const AuthProvider = ({ children }) => {
     [API, user, fetchFreshProfile, storeMinimalUser],
   );
 
-  const combinedUser = user
+  const combinedUser = useMemo(() => user
     ? {
         ...user,
         profile: profile?.profile || {},
         recentlyWatched: profile?.recentlyWatched || [],
         favoriteAnime: profile?.favoriteAnime || [],
       }
-    : null;
+    : null, [user, profile]);
 
   const value = {
     user: combinedUser,

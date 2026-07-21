@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, ScrollView, Image, TouchableOpacity, FlatList,
+  View, Text, ScrollView, TouchableOpacity, FlatList,
   ActivityIndicator, StyleSheet, Dimensions, Animated, StatusBar,
   RefreshControl, PanResponder, TextInput,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -91,12 +92,14 @@ const getStatusLabel = (status) => {
 const SkeletonCard = ({ index }) => {
   const shimmer = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmer, { toValue: 1, duration: 900, delay: index * 80, useNativeDriver: true }),
         Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    loop.start();
+    return () => loop.stop();
   }, []);
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.65] });
   return (
@@ -154,12 +157,14 @@ const AnimeSection = React.memo(({ title, data, onOpenModal, onExplore }) => {
 const SkeletonSection = ({ index: si }) => {
   const shimmer = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmer, { toValue: 1, duration: 800, delay: si * 100, useNativeDriver: true }),
         Animated.timing(shimmer, { toValue: 0, duration: 800, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    loop.start();
+    return () => loop.stop();
   }, []);
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.65] });
   return (
@@ -270,7 +275,7 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
   return (
     <View style={styles.heroContainer} {...panResponder.panHandlers}>
       {/* Banner Image */}
-      <Image source={{ uri: imageUrl }} style={styles.heroImage} resizeMode="cover" />
+      <Image source={{ uri: imageUrl }} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />
 
       {/* Dual gradient overlay matching spec */}
       {/* Left-to-right dark gradient */}

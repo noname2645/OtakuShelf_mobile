@@ -3,11 +3,11 @@ import {
     View,
     Text,
     TouchableOpacity,
-    Image,
     StyleSheet,
     Animated,
     Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
@@ -86,7 +86,8 @@ const AnimatedAnimeCard = ({ item, index, onPress, cardStyle }) => {
                                 'https://via.placeholder.com/300x450',
                         }}
                         style={styles.cardImage}
-                        resizeMode="cover"
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
                     />
                     <LinearGradient
                         colors={[

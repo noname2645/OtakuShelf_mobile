@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Alert,
   Modal,
@@ -16,6 +15,7 @@ import {
   ScrollView,
   Animated,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -148,7 +148,7 @@ const PremiumAnimeCard = React.memo(({
         style={s.cardTouch}
       >
         {/* ── Full card image ── */}
-        <Image source={{ uri: imageUrl }} style={s.cardImage} resizeMode="cover" onError={() => setImgErr(true)} />
+        <Image source={{ uri: imageUrl }} style={s.cardImage} contentFit="cover" cachePolicy="memory-disk" onError={() => setImgErr(true)} />
 
         {/* ── Full fade overlay ── */}
         <LinearGradient
@@ -841,7 +841,7 @@ const AddAnimeModal = ({ visible, onClose, query, onSearch, results, loading, on
           <ScrollView style={s.resultsList} showsVerticalScrollIndicator={false}>
             {results.map(item => (
               <View key={item.mal_id} style={s.resultCard}>
-                <Image source={{ uri: item.images?.jpg?.image_url }} style={s.resultImg} />
+                <Image source={{ uri: item.images?.jpg?.image_url }} style={s.resultImg} contentFit="cover" cachePolicy="memory-disk" />
                 <View style={s.resultInfo}>
                   <Text style={s.resultTitle} numberOfLines={2}>{item.title_english || item.title}</Text>
                   <Text style={s.resultMeta}>

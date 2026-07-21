@@ -24,10 +24,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { Svg, G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import axios from 'axios';
 import AnimeModal from '../components/AnimeModal';
+import AnimeCardPremium from '../components/AnimeCardPremium';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_VERSION, BUILD_DATE } from '../config/api';
 
 const { width } = Dimensions.get('window');
+
+const normalizeAnime = (item) => {
+  if (!item) return null;
+  return {
+    id: item.id || item.animeId || item._id,
+    title: typeof item.title === 'string' ? item.title : (item.title?.english || item.title?.romaji || item.title?.native || 'Unknown'),
+    coverImage: {
+      large: item.image || item.coverImage?.extraLarge || item.coverImage?.large,
+      extraLarge: item.image || item.coverImage?.extraLarge || item.coverImage?.large,
+    },
+    averageScore: item.averageScore || item.score || null,
+    episodes: item.episodes || null,
+    format: item.format || null,
+    genres: item.genres || [],
+    year: item.year || item.startDate?.year || null,
+    status: item.status || null,
+    studios: item.studios || [],
+    trailer: item.trailer || null,
+  };
+};
 
 // Anime Genres Array
 const ANIME_GENRES = [
@@ -298,21 +319,15 @@ const ProfileScreen = ({ navigation }) => {
       if (!userId) return;
       
       const token = await AsyncStorage.getItem("token");
-      const response = await axios.get(`${API}/api/profile/${userId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = response.data?.data || response.data;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // Fetch watchlist for real-time stats and genre calculations
-      let watchlist = null;
-      try {
-        const listRes = await axios.get(`${API}/api/list/${userId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        watchlist = listRes.data;
-      } catch (listErr) {
-        console.log("Failed to fetch watchlist for profile stats", listErr);
-      }
+      const [profileRes, listRes] = await Promise.all([
+        axios.get(`${API}/api/profile/${userId}`, { headers }),
+        axios.get(`${API}/api/list/${userId}`, { headers }).catch(() => null),
+      ]);
+
+      const data = profileRes.data?.data || profileRes.data;
+      const watchlist = listRes?.data;
 
       if (data) {
         const fixImageUrl = (url) => {
@@ -511,7 +526,7 @@ const ProfileScreen = ({ navigation }) => {
     extrapolate: 'clamp',
   });
 
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#ff6b6b" /><Text style={styles.loadingText}>Loading Profile...</Text></View>;
+  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#ffae00" style={{ transform: [{ scale: 1.5 }] }} /></View>;
   if (!profileData) return null;
 
   return (
@@ -588,8 +603,19 @@ const ProfileScreen = ({ navigation }) => {
           {/* Recent Activity Grid */}
           <Text style={styles.sectionTitle}>Recently Watched</Text>
           {recentlyWatched.length > 0 ? (
-            <View style={styles.gridContainer}>
-              {recentlyWatched.map((anime, i) => <AnimeGridCard key={i} item={anime} index={i} onPress={fetchAnimeDetails} />)}
+            <View style={styles.recentGrid}>
+              {recentlyWatched.slice(0, 5).map((anime, i) => {
+                const norm = normalizeAnime(anime);
+                if (!norm) return null;
+                if (i === 0) {
+                  return <AnimeCardPremium key={i} anime={norm} index={i} onPress={fetchAnimeDetails} isBanner />;
+                }
+                return (
+                  <View key={i} style={styles.gridHalf}>
+                    <AnimeCardPremium anime={norm} index={i} onPress={fetchAnimeDetails} isGrid />
+                  </View>
+                );
+              })}
             </View>
           ) : (
             <View style={styles.emptyState}><Text style={styles.emptyText}>No recently watched anime yet.</Text></View>
@@ -599,7 +625,15 @@ const ProfileScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Favorite Anime</Text>
           {favoriteAnime.length > 0 ? (
             <View style={styles.gridContainer}>
-              {favoriteAnime.map((anime, i) => <AnimeGridCard key={i} item={anime} index={i} onPress={fetchAnimeDetails} />)}
+              {favoriteAnime.map((anime, i) => {
+                const norm = normalizeAnime(anime);
+                if (!norm) return null;
+                return (
+                  <View key={i} style={styles.gridHalf}>
+                    <AnimeCardPremium anime={norm} index={i} onPress={fetchAnimeDetails} isGrid />
+                  </View>
+                );
+              })}
             </View>
           ) : (
             <View style={styles.emptyState}><Text style={styles.emptyText}>No favorite anime yet.</Text></View>
@@ -698,7 +732,9 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: 24, fontWeight: 'bold', color: '#ff6b6b', marginBottom: 5 },
   statLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
 
-  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }, // Added Grid Style
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14, columnGap: 14 },
+  recentGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14, columnGap: 14 },
+  gridHalf: { width: (width - 40 - 14) / 2 },
 
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, marginBottom: 30 },
   badgeCard: { width: (width - 55) / 2, backgroundColor: 'rgba(255,255,255,0.05)', padding: 20, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },

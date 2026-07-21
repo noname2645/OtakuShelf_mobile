@@ -3,7 +3,6 @@ import {
   View,
   Text,
   Modal,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -12,6 +11,7 @@ import {
   ScrollView,
   Platform
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Ionicons } from '@expo/vector-icons';
@@ -223,7 +223,8 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
             <Image
               source={{ uri: animeData.bannerImage }}
               style={styles.bannerImage}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
             />
             <LinearGradient
               colors={['transparent', 'rgba(3, 7, 18, 0.7)', 'rgba(3, 7, 18, 0.98)']}

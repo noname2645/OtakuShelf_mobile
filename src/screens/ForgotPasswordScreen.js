@@ -7,21 +7,20 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
 const appIcon = require('../../assets/otakushelf_app_icon.png');
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-// ─── Floating orb animation helper ──────────────────────────────────────────────
+// ─── Floating animation helper ──────────────────────────────────────────────
 const useFloatingAnimation = (duration = 3000) => {
   const value = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(value, { toValue: 1, duration: duration, useNativeDriver: true }),
-        Animated.timing(value, { toValue: 0, duration: duration, useNativeDriver: true }),
+        Animated.timing(value, { toValue: 1, duration, useNativeDriver: true }),
+        Animated.timing(value, { toValue: 0, duration, useNativeDriver: true }),
       ])
     );
     loop.start();
@@ -30,7 +29,7 @@ const useFloatingAnimation = (duration = 3000) => {
   return value;
 };
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
+// ─── Toast ──────────────────────────────────────────────────────────────────
 const Toast = ({ message, type }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateX = useRef(new Animated.Value(60)).current;
@@ -52,7 +51,6 @@ const Toast = ({ message, type }) => {
 
   if (!message) return null;
   const isSuccess = type === 'success';
-
   return (
     <Animated.View style={[styles.toast, isSuccess ? styles.toastSuccess : styles.toastError, { opacity, transform: [{ translateX }] }]}>
       <Ionicons name={isSuccess ? 'checkmark-circle' : 'alert-circle'} size={18} color={isSuccess ? '#4ade80' : '#f87171'} />
@@ -61,8 +59,8 @@ const Toast = ({ message, type }) => {
   );
 };
 
-// ─── InputField ───────────────────────────────────────────────────────────────
-const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, autoCapitalize, editable, maxLength, textAlign, fontSize, letterSpacing, entranceDelay = 0 }) => {
+// ─── InputField ─────────────────────────────────────────────────────────────
+const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, editable, entranceDelay = 0, accentColor = '#ff6b6b' }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
@@ -85,24 +83,23 @@ const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, k
     Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
   };
 
-  const borderColor = borderAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.1)', '#ff6b6b'] });
+  const borderColor = borderAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.1)', accentColor] });
 
   return (
     <Animated.View style={[styles.inputWrapper, { borderColor, opacity: fieldOpacity, transform: [{ translateY: fieldY }] }]}>
-      <Ionicons name={icon} size={18} color={focused ? '#ff6b6b' : 'rgba(255,255,255,0.4)'} style={styles.inputIcon} />
+      <Ionicons name={icon} size={18} color={focused ? accentColor : 'rgba(255,255,255,0.4)'} style={styles.inputIcon} />
       <TextInput
-        style={[styles.input, textAlign && { textAlign }, fontSize && { fontSize }, letterSpacing && { letterSpacing }]}
+        style={styles.input}
         placeholder={placeholder}
         placeholderTextColor="rgba(255,255,255,0.3)"
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry && !showPassword}
         keyboardType={keyboardType || 'default'}
-        autoCapitalize={autoCapitalize || 'none'}
+        autoCapitalize="none"
         editable={editable !== false}
         onFocus={onFocus}
         onBlur={onBlur}
-        maxLength={maxLength}
         autoCorrect={false}
       />
       {secureTextEntry && (
@@ -114,39 +111,52 @@ const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, k
   );
 };
 
-// ─── Google SVG Logo ─────────────────────────────────────────────────────────
-const Svg_Google = () => (
-  <Svg width={20} height={20} viewBox="0 0 48 48" style={{ marginRight: 10 }}>
-    <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-    <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-    <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-    <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-    <Path fill="none" d="M0 0h48v48H0z" />
-  </Svg>
-);
+// ─── Password strength bar ──────────────────────────────────────────────────
+const PasswordStrength = ({ password }) => {
+  if (!password) return null;
+  const score = [
+    password.length >= 8,
+    /[A-Z]/.test(password),
+    /[0-9]/.test(password),
+    /[^A-Za-z0-9]/.test(password),
+  ].filter(Boolean).length;
 
-// ─── LoginScreen ──────────────────────────────────────────────────────────────
-const LoginScreen = ({ navigation }) => {
+  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  const colors = ['', '#ef4444', '#f97316', '#eab308', '#22c55e'];
+  const pct = (score / 4) * 100;
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      <View style={styles.strengthBar}>
+        <Animated.View style={[styles.strengthFill, { width: `${pct}%`, backgroundColor: colors[score] }]} />
+      </View>
+      {score > 0 && <Text style={[styles.strengthLabel, { color: colors[score] }]}>{labels[score]}</Text>}
+    </View>
+  );
+};
+
+// ─── ForgotPasswordScreen ─────────────────────────────────────────────────────
+const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [requiresMfa, setRequiresMfa] = useState(false);
-  const [mfaCode, setMfaCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [step, setStep] = useState('email'); // 'email' | 'reset'
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'error' });
-  const { login, API } = useAuth();
+  const { API } = useAuth();
+
+  const accentColor = '#14b8a6';
 
   // Floating animations
   const orb1Y = useFloatingAnimation(2800);
   const orb2Y = useFloatingAnimation(3400);
   const orb3Y = useFloatingAnimation(2500);
-  // Card entrance
+  // Entrance animations
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardY = useRef(new Animated.Value(40)).current;
   const iconScale = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
-
-  // MFA transition
-  const mfaOpacity = useRef(new Animated.Value(1)).current;
+  const stepOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -162,50 +172,59 @@ const LoginScreen = ({ navigation }) => {
     setTimeout(() => setToast({ message, type }), 10);
   }, []);
 
-  const handleLogin = async () => {
-    if (!requiresMfa && (!email.trim() || !password)) {
-      showToast('Please fill in all fields');
-      return;
-    }
-    if (requiresMfa && (!mfaCode || mfaCode.length !== 6)) {
-      showToast('Enter the 6-digit MFA code');
-      return;
-    }
+  const transitionStep = (nextStep) => {
+    Animated.timing(stepOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
+      setStep(nextStep);
+      Animated.timing(stepOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    });
+  };
 
+  const validateEmail = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      showToast('Please enter your email'); return false;
+    }
+    if (!emailRegex.test(email.trim())) {
+      showToast('Enter a valid email address'); return false;
+    }
+    return true;
+  };
+
+  const validatePassword = () => {
+    if (!newPassword || !confirmPassword) {
+      showToast('Please fill in all fields'); return false;
+    }
+    if (newPassword.length < 8) {
+      showToast('Password must be at least 8 characters'); return false;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      showToast('Password must include an uppercase letter'); return false;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      showToast('Password must include a number'); return false;
+    }
+    if (!/[^A-Za-z0-9]/.test(newPassword)) {
+      showToast('Password must include a special character'); return false;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('Passwords do not match'); return false;
+    }
+    return true;
+  };
+
+  const handleSendCode = async () => {
+    if (!validateEmail()) return;
     setIsLoading(true);
     try {
-      const payload = { email: email.trim(), password };
-      if (requiresMfa) payload.mfaCode = mfaCode;
-
-      const res = await axios.post(`${API}/auth/login`, payload, {
-        withCredentials: true,
-        timeout: 60000,
+      await axios.post(`${API}/auth/forgot-password`, { email: email.trim() }, {
+        withCredentials: true, timeout: 60000,
       });
-
-      if (res.data.requiresMfa) {
-        Animated.timing(mfaOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
-          setRequiresMfa(true);
-          Animated.timing(mfaOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-        });
-        showToast('Check your authenticator app for the code', 'success');
-        return;
-      }
-
-      const userData = res.data?.data?.user || res.data?.user;
-      const token = res.data?.data?.token || res.data?.token;
-
-      if (userData && token) {
-        await login(userData, token);
-        setEmail(''); setPassword(''); setMfaCode('');
-        navigation.replace('Home');
-      } else {
-        showToast('Invalid response from server');
-      }
+      showToast('Verification code sent to your email', 'success');
+      setTimeout(() => transitionStep('reset'), 500);
     } catch (err) {
-      console.error('Login error:', err);
-      let msg = 'Error logging in';
+      let msg = 'Error sending reset code';
       if (err.code === 'ECONNABORTED') msg = 'Connection timeout. Check your internet.';
-      else if (err.response) msg = err.response.data?.message || 'Invalid credentials';
+      else if (err.response) msg = err.response.data?.message || 'Email not found';
       else if (err.request) msg = 'Cannot reach server. Try again later.';
       showToast(msg);
     } finally {
@@ -213,15 +232,28 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const cancelMfa = () => {
-    Animated.timing(mfaOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
-      setRequiresMfa(false);
-      setMfaCode('');
-      Animated.timing(mfaOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    });
+  const handleResetPassword = async () => {
+    if (!validatePassword()) return;
+    setIsLoading(true);
+    try {
+      await axios.post(`${API}/auth/reset-password`, {
+        email: email.trim(),
+        newPassword,
+      }, {
+        withCredentials: true, timeout: 60000,
+      });
+      showToast('Password reset successfully!', 'success');
+      setTimeout(() => navigation.navigate('Login'), 1200);
+    } catch (err) {
+      let msg = 'Error resetting password';
+      if (err.code === 'ECONNABORTED') msg = 'Connection timeout. Check your internet.';
+      else if (err.response) msg = err.response.data?.message || 'Reset failed';
+      else if (err.request) msg = 'Cannot reach server. Try again later.';
+      showToast(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  const handleGoogleLogin = () => navigation.navigate('GoogleAuth');
 
   const orb1TranslateY = orb1Y.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const orb2TranslateY = orb2Y.interpolate({ inputRange: [0, 1], outputRange: [0, 25] });
@@ -238,100 +270,111 @@ const LoginScreen = ({ navigation }) => {
         <Animated.View style={[styles.orb, styles.orb3, { transform: [{ translateY: orb3TranslateY }] }]} />
       </View>
 
-      {/* Toast */}
       <Toast message={toast.message} type={toast.type} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* Card */}
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardY }] }]}>
 
             {/* Card glow */}
             <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]} />
 
-            {/* Top accent line */}
+            {/* Top accent — teal */}
             <LinearGradient
-              colors={['transparent', '#ff6b6b', '#a855f7', 'transparent']}
+              colors={['transparent', accentColor, '#06b6d4', 'transparent']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.cardAccentLine}
             />
 
-            {/* Back to home */}
-            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Home')} activeOpacity={0.75}>
+            {/* Back */}
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Login')} activeOpacity={0.75}>
               <Ionicons name="arrow-back" size={14} color="rgba(255,255,255,0.5)" />
-              <Text style={styles.backBtnText}>Home</Text>
+              <Text style={styles.backBtnText}>Login</Text>
             </TouchableOpacity>
 
-            {/* Floating icon badge */}
+            {/* Icon badge */}
             <Animated.View style={[styles.iconBadgeWrapper, { transform: [{ scale: iconScale }] }]}>
-              <LinearGradient colors={['#ff6b6b', '#a855f7']} style={styles.iconBadge}>
+              <LinearGradient colors={[accentColor, '#06b6d4']} style={styles.iconBadge}>
                 <Image source={appIcon} style={styles.iconBadgeImage} contentFit="cover" />
               </LinearGradient>
-              <View style={styles.iconBadgeGlow} />
+              <View style={[styles.iconBadgeGlow, { backgroundColor: `${accentColor}2E` }]} />
             </Animated.View>
 
             {/* Heading */}
-            <Animated.View style={[styles.heading, { opacity: mfaOpacity }]}>
-              <Text style={styles.title}>{requiresMfa ? 'Two-Factor Auth' : 'Welcome Back'}</Text>
-              <Text style={styles.subtitle}>{requiresMfa ? 'Enter the 6-digit code from your app' : 'Sign in to your OtakuShelf account'}</Text>
-            </Animated.View>
+            <View style={styles.heading}>
+              <Text style={[styles.title, { textShadowColor: `${accentColor}4D` }]}>
+                {step === 'email' ? 'Reset Password' : 'Create New Password'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {step === 'email'
+                  ? 'Enter your email to receive a reset code'
+                  : 'Choose a strong password for your account'}
+              </Text>
+            </View>
 
             {/* Form */}
-            <Animated.View style={{ opacity: mfaOpacity }}>
-              {!requiresMfa ? (
+            <Animated.View style={{ opacity: stepOpacity }}>
+              {step === 'email' ? (
+                <View style={styles.fieldGroup}>
+                  <InputField
+                    icon="mail-outline"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    editable={!isLoading}
+                    entranceDelay={100}
+                    accentColor={accentColor}
+                  />
+                </View>
+              ) : (
                 <>
                   <View style={styles.fieldGroup}>
                     <InputField
-                      icon="mail-outline"
-                      placeholder="Enter your email"
-                      value={email}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
+                      icon="key-outline"
+                      placeholder="New password (min 8 chars)"
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry
                       editable={!isLoading}
                       entranceDelay={100}
+                      accentColor={accentColor}
                     />
+                    <PasswordStrength password={newPassword} />
                   </View>
 
                   <View style={styles.fieldGroup}>
                     <InputField
-                      icon="key-outline"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChangeText={setPassword}
+                      icon="shield-checkmark-outline"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
                       secureTextEntry
                       editable={!isLoading}
                       entranceDelay={200}
+                      accentColor={accentColor}
                     />
-                    <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotRow}>
-                      <Text style={styles.forgotText}>Forgot password?</Text>
-                    </TouchableOpacity>
+                    {confirmPassword.length > 0 && (
+                      <View style={styles.matchRow}>
+                        <Ionicons
+                          name={newPassword === confirmPassword ? 'checkmark-circle' : 'close-circle'}
+                          size={14}
+                          color={newPassword === confirmPassword ? '#4ade80' : '#f87171'}
+                        />
+                        <Text style={[styles.matchText, { color: newPassword === confirmPassword ? '#4ade80' : '#f87171' }]}>
+                          {newPassword === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </>
-              ) : (
-                <View style={styles.fieldGroup}>
-                  <InputField
-                    icon="shield-checkmark-outline"
-                    placeholder="6-digit code"
-                    value={mfaCode}
-                    onChangeText={t => setMfaCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
-                    keyboardType="number-pad"
-                    editable={!isLoading}
-                    maxLength={6}
-                    textAlign="center"
-                    fontSize={22}
-                    letterSpacing={8}
-                  />
-                  <TouchableOpacity onPress={cancelMfa} style={styles.forgotRow}>
-                    <Text style={[styles.forgotText, { textAlign: 'center' }]}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
               )}
             </Animated.View>
 
             {/* Primary button */}
             <TouchableOpacity
-              onPress={handleLogin}
+              onPress={step === 'email' ? handleSendCode : handleResetPassword}
               disabled={isLoading}
               activeOpacity={0.85}
               style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
@@ -339,36 +382,27 @@ const LoginScreen = ({ navigation }) => {
               {isLoading ? (
                 <View style={styles.primaryBtnInner}>
                   <ActivityIndicator color="#000" size="small" />
-                  <Text style={styles.primaryBtnText}>Signing In...</Text>
+                  <Text style={[styles.primaryBtnText, { color: '#000' }]}>
+                    {step === 'email' ? 'Sending...' : 'Resetting...'}
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.primaryBtnInner}>
-                  <Text style={styles.primaryBtnText}>Login</Text>
-                  <Text style={styles.primaryBtnArrow}>→</Text>
+                  <Text style={[styles.primaryBtnText, { color: '#000' }]}>
+                    {step === 'email' ? 'Send Reset Code' : 'Reset Password'}
+                  </Text>
+                  <Text style={[styles.primaryBtnArrow, { color: '#000' }]}>→</Text>
                 </View>
               )}
-            </TouchableOpacity>
-
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Google button */}
-            <TouchableOpacity onPress={handleGoogleLogin} disabled={isLoading} activeOpacity={0.85} style={styles.googleBtn}>
-              <Svg_Google />
-              <Text style={styles.googleText}>Sign in with Google</Text>
             </TouchableOpacity>
 
             {/* Footer */}
             <View style={styles.footer}>
               <View style={styles.footerDivider} />
               <Text style={styles.footerText}>
-                New to OtakuShelf?{'  '}
-                <Text style={styles.footerLink} onPress={() => navigation.navigate('Register')}>
-                  Join Now →
+                Remember your password?{'  '}
+                <Text style={[styles.footerLink, { color: accentColor }]} onPress={() => navigation.navigate('Login')}>
+                  Sign In →
                 </Text>
               </Text>
             </View>
@@ -383,57 +417,33 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0d0f1a' },
 
-  // Background orbs
   orb: { position: 'absolute', borderRadius: 9999 },
-  orb1: {
-    width: 420, height: 420, top: -120, left: -100,
-    backgroundColor: 'rgba(255,107,107,0.22)',
-  },
-  orb2: {
-    width: 350, height: 350, bottom: -80, right: -80,
-    backgroundColor: 'rgba(139,92,246,0.25)',
-  },
-  orb3: {
-    width: 250, height: 250, top: '40%', left: '55%',
-    backgroundColor: 'rgba(255,166,0,0.12)',
-  },
+  orb1: { width: 380, height: 380, top: -100, left: -80, backgroundColor: 'rgba(20,184,166,0.18)' },
+  orb2: { width: 300, height: 300, bottom: -60, right: -60, backgroundColor: 'rgba(6,182,212,0.18)' },
+  orb3: { width: 200, height: 200, top: '45%', left: '58%', backgroundColor: 'rgba(255,166,0,0.1)' },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 20, paddingTop: 60 },
 
-  // Card — glassmorphism
   card: {
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
+    width: '100%', maxWidth: 440, alignSelf: 'center',
     backgroundColor: 'transparent',
-    borderRadius: 28,
-    paddingTop: 56, paddingBottom: 36, paddingHorizontal: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 24 },
-    shadowOpacity: 0.55,
-    shadowRadius: 60,
-    elevation: 20,
-    overflow: 'visible',
+    borderRadius: 28, paddingTop: 56, paddingBottom: 36, paddingHorizontal: 28,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.55, shadowRadius: 60, elevation: 20,
     marginBottom: 20,
   },
   cardGlow: {
     position: 'absolute', top: -40, alignSelf: 'center',
-    width: 200, height: 80,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,107,107,0.12)',
-    shadowColor: '#ff6b6b',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 60,
-    elevation: 0,
+    width: 200, height: 80, borderRadius: 100,
+    backgroundColor: 'rgba(20,184,166,0.1)',
+    shadowColor: '#14b8a6', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35, shadowRadius: 60, elevation: 0,
   },
   cardAccentLine: {
     position: 'absolute', top: 0, left: '20%', right: '20%',
     height: 2, borderRadius: 999,
   },
 
-  // Back button
   backBtn: {
     position: 'absolute', top: 16, left: 16,
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -443,34 +453,22 @@ const styles = StyleSheet.create({
   },
   backBtnText: { color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' },
 
-  // Floating icon badge
-  iconBadgeWrapper: {
-    alignSelf: 'center', marginTop: -30, marginBottom: 22,
-    width: 64, height: 64,
-  },
+  iconBadgeWrapper: { alignSelf: 'center', marginTop: -30, marginBottom: 22, width: 64, height: 64 },
   iconBadge: {
     width: 64, height: 64, borderRadius: 32,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#ff6b6b', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5, shadowRadius: 24, elevation: 12,
+    shadowColor: '#14b8a6', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 24, elevation: 12,
   },
   iconBadgeImage: { width: 64, height: 64, borderRadius: 32 },
-  iconBadgeGlow: {
-    position: 'absolute', inset: -8, borderRadius: 40,
-    backgroundColor: 'rgba(255,107,107,0.18)',
-  },
+  iconBadgeGlow: { position: 'absolute', inset: -8, borderRadius: 40 },
 
-  // Heading
   heading: { alignItems: 'center', marginBottom: 28 },
   title: {
-    fontSize: 28, fontWeight: '800', color: '#fff',
-    marginBottom: 6, letterSpacing: -0.3,
-    textShadowColor: 'rgba(255,107,107,0.3)',
+    fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 6, letterSpacing: -0.3,
     textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 10,
   },
   subtitle: { color: 'rgba(255,255,255,0.45)', fontSize: 14 },
 
-  // Fields
   fieldGroup: { marginBottom: 16 },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
@@ -479,46 +477,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, height: 52,
   },
   inputIcon: { marginRight: 10 },
-  input: {
-    flex: 1, color: '#fff', fontSize: 14.5,
-    letterSpacing: 0.3,
-  },
+  input: { flex: 1, color: '#fff', fontSize: 14.5, letterSpacing: 0.3 },
   eyeBtn: { padding: 4 },
-  forgotRow: { alignItems: 'flex-end', marginTop: 8 },
-  forgotText: { color: 'rgba(192,132,252,0.85)', fontSize: 12.5 },
+
+  // Password strength
+  strengthBar: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' },
+  strengthFill: { height: '100%', borderRadius: 4 },
+  strengthLabel: { fontSize: 11, fontWeight: '700', marginTop: 4, textAlign: 'right' },
+
+  // Password match
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  matchText: { fontSize: 12, fontWeight: '600' },
 
   // Primary button
   primaryBtn: {
     borderRadius: 50, overflow: 'hidden', marginTop: 6, marginBottom: 4,
-    backgroundColor: '#eb9b08',
+    backgroundColor: '#14b8a6',
   },
   primaryBtnDisabled: { backgroundColor: '#888' },
   primaryBtnInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, gap: 10,
   },
-  primaryBtnText: { color: '#000', fontSize: 17, fontWeight: '800', letterSpacing: 1 },
-  primaryBtnArrow: { color: '#000', fontSize: 18, fontWeight: '700' },
-
-  // Divider
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 22 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
-  dividerText: { color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' },
-
-  // Google button
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 50, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)',
-  },
-  googleText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  primaryBtnText: { fontSize: 17, fontWeight: '800', letterSpacing: 1 },
+  primaryBtnArrow: { fontSize: 18, fontWeight: '700' },
 
   // Footer
   footer: { marginTop: 24 },
   footerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginBottom: 22 },
   footerText: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 14 },
-  footerLink: { color: '#c084fc', fontWeight: '700' },
+  footerLink: { fontWeight: '700' },
 
   // Toast
   toast: {
@@ -526,14 +514,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 16, paddingVertical: 12,
     borderRadius: 14, borderWidth: 1,
-    minWidth: 220, maxWidth: width - 32,
-    zIndex: 9999,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35, shadowRadius: 24, elevation: 14,
+    minWidth: 220, maxWidth: width - 32, zIndex: 9999,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 14,
   },
   toastSuccess: { backgroundColor: 'rgba(22,163,74,0.18)', borderColor: 'rgba(74,222,128,0.25)' },
   toastError: { backgroundColor: 'rgba(220,38,38,0.18)', borderColor: 'rgba(248,113,113,0.25)' },
   toastText: { fontSize: 13, fontWeight: '600', flex: 1 },
 });
 
-export default LoginScreen;
+export default ForgotPasswordScreen;

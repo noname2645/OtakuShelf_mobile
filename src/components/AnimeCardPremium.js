@@ -21,13 +21,13 @@ export const CARD_HEIGHT = CARD_WIDTH * 1.52;
 
 const blurhash = 'L5H2EC=PM+yV0gofqwt7jrRjwfRj';
 
-const StarIcon = () => (
+const StarIcon = React.memo(() => (
   <Svg width={10} height={10} viewBox="0 0 24 24" fill="#ff5900">
     <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
   </Svg>
-);
+));
 
-const HeartIcon = ({ filled }) => (
+const HeartIcon = React.memo(({ filled }) => (
   <Svg width={15} height={15} viewBox="0 0 24 24"
     fill={filled ? '#ff2a5f' : 'none'}
     stroke={filled ? '#ff2a5f' : 'rgba(255,255,255,0.7)'}
@@ -35,9 +35,9 @@ const HeartIcon = ({ filled }) => (
   >
     <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
   </Svg>
-);
+));
 
-const WatchlistIcon = ({ active }) => (
+const WatchlistIcon = React.memo(({ active }) => (
   <Svg width={12} height={12} viewBox="0 0 24 24"
     fill={active ? '#ff5900' : 'none'}
     stroke={active ? '#ff5900' : 'rgba(255,255,255,0.7)'}
@@ -45,33 +45,33 @@ const WatchlistIcon = ({ active }) => (
   >
     <Path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
   </Svg>
-);
+));
 
-const ShareIcon = () => (
+const ShareIcon = React.memo(() => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={2}>
     <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
     <Polyline points="16 6 12 2 8 6" />
     <Line x1="12" y1="2" x2="12" y2="15" />
   </Svg>
-);
+));
 
-const CalIcon = () => (
+const CalIcon = React.memo(() => (
   <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
     <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
     <Line x1="16" y1="2" x2="16" y2="6" />
     <Line x1="8" y1="2" x2="8" y2="6" />
     <Line x1="3" y1="10" x2="21" y2="10" />
   </Svg>
-);
+));
 
-const EpisodesIcon = () => (
+const EpisodesIcon = React.memo(() => (
   <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
     <Polygon points="23 7 16 12 23 17 23 7" />
     <Rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
   </Svg>
-);
+));
 
-const GenreIcon = () => (
+const GenreIcon = React.memo(() => (
   <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
     <Line x1="8" y1="6" x2="21" y2="6" />
     <Line x1="8" y1="12" x2="21" y2="12" />
@@ -80,9 +80,9 @@ const GenreIcon = () => (
     <Line x1="3" y1="12" x2="3.01" y2="12" />
     <Line x1="3" y1="18" x2="3.01" y2="18" />
   </Svg>
-);
+));
 
-const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) => {
+const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false, isBanner = false }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const { isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded } = usePreferences();
@@ -121,15 +121,15 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
 
   if (!anime) return null;
 
-  const imageUrl = anime.coverImage?.extraLarge || anime.coverImage?.large;
+  const imageUrl = isBanner ? (anime.bannerImage || anime.coverImage?.extraLarge || anime.coverImage?.large) : (anime.coverImage?.extraLarge || anime.coverImage?.large);
   const score = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
   const genre = (anime.genres || [])[0] || '—';
   const episodes = anime.episodes || '—';
   const year = anime.year || anime.startDate?.year || '—';
   const format = anime.format || 'TV';
 
-  const cardW = isGrid ? undefined : CARD_WIDTH;
-  const cardH = isGrid ? CARD_WIDTH * 1.52 : CARD_HEIGHT;
+  const cardW = isGrid ? undefined : isBanner ? undefined : CARD_WIDTH;
+  const cardH = isGrid ? CARD_WIDTH * 1.52 : isBanner ? 200 : CARD_HEIGHT;
   const fav = loaded && anime?.id ? isFavorite(String(anime.id)) : false;
   const wl = loaded && anime?.id ? isWatchlisted(String(anime.id)) : false;
 
@@ -137,7 +137,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
     <Animated.View
       style={[
         styles.cardOuter,
-        isGrid ? styles.cardGrid : { width: cardW, height: cardH },
+        isGrid ? styles.cardGrid : isBanner ? styles.cardBanner : { width: cardW, height: cardH },
         { transform: [{ scale: scaleAnim }] },
       ]}
     >
@@ -155,7 +155,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
             contentFit="cover"
             placeholder={{ blurhash }}
             cachePolicy="memory-disk"
-            transition={200}
+            transition={50}
           />
         ) : (
           <View style={[styles.cardImage, styles.noImage]} />
@@ -188,7 +188,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
             <Text style={styles.formatTagText}>{format.toUpperCase()}</Text>
           </View>
 
-          <Text style={styles.mainTitle} numberOfLines={2}>{anime.title?.toUpperCase?.() || anime.title}</Text>
+          <Text style={styles.mainTitle} numberOfLines={2}>{typeof anime.title === 'string' ? anime.title.toUpperCase() : 'Unknown'}</Text>
 
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
@@ -248,6 +248,11 @@ const styles = StyleSheet.create({
   cardGrid: {
     flex: 1,
     marginBottom: 14,
+  },
+  cardBanner: {
+    width: '100%',
+    height: 200,
+    marginBottom: 16,
   },
   cardTouch: { flex: 1 },
   cardImage: {

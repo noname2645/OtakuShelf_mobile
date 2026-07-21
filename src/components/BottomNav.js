@@ -11,20 +11,25 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Image } from 'expo-image';
+import { useAuth } from '../contexts/AuthContext';
 import Svg, { Path, Polyline, Circle, Line, Polygon, Rect } from 'react-native-svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// ── Tab definitions (matches design.md §7) ──────────────────────────────────
+// ── Tab definitions ─────────────────────────────────────────────────────────
+const BASE_SIZES = { Home: 18, List: 20, Search: 20, AI: 22, Profile: 20 };
 const TABS = [
   {
     name: 'Home',
     label: 'Home',
     color: [167, 139, 250], // Violet
     icon: ({ active, size, color }) => (
-      <Svg width={size} height={size} viewBox="0 0 512 512" fill={active ? `rgb(${color})` : '#94a3b8'}>
-        <Path d="M261.56 101.28a8 8 0 0 0-11.06 0L66.4 277.15a8 8 0 0 0-2.47 5.79L63.9 448a32 32 0 0 0 32 32H192a16 16 0 0 0 16-16V328a8 8 0 0 1 8-8h80a8 8 0 0 1 8 8v136a16 16 0 0 0 16 16h96.06a32 32 0 0 0 32-32V282.94a8 8 0 0 0-2.47-5.79Z" />
-        <Path d="m490.91 244.15l-74.8-71.56V64a16 16 0 0 0-16-16h-48a16 16 0 0 0-16 16v32l-57.92-55.38C272.77 35.14 264.71 32 256 32c-8.68 0-16.72 3.14-22.14 8.63l-212.7 203.5c-6.22 6-7 15.87-1.34 22.37A16 16 0 0 0 43 267.56L250.5 69.28a8 8 0 0 1 11.06 0l207.52 198.28a16 16 0 0 0 22.59-.44c6.14-6.36 5.63-16.86-.76-22.97Z" />
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke={active ? `rgb(${color})` : '#94a3b8'} strokeWidth={2}
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <Path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
       </Svg>
     ),
   },
@@ -65,11 +70,20 @@ const TABS = [
     label: 'OtakuAI',
     color: [255, 215, 0], // Gold
     icon: ({ active, size, color }) => (
-      <Svg width={size} height={size} viewBox="0 0 512 512" fill={active ? `rgb(${color})` : '#94a3b8'}>
-        <Path
-          fillRule="evenodd"
-          d="M384 128v256H128V128zm-148.25 64h-24.932l-47.334 128h22.493l8.936-25.023h56.662L260.32 320h23.847zm88.344 64h-22.402v128h22.402zm-101 21.475l22.315 63.858h-44.274zM405.335 320H448v42.667h-42.667zm-256 85.333H192V448h-42.667zm85.333 0h42.666V448h-42.666zM149.333 64H192v42.667h-42.667zM320 405.333h42.667V448H320zM234.667 64h42.666v42.667h-42.666zM320 64h42.667v42.667H320zm85.333 170.667H448v42.666h-42.667zM64 320h42.667v42.667H64zm341.333-170.667H448V192h-42.667zM64 234.667h42.667v42.666H64zm0-85.334h42.667V192H64z"
-        />
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke={active ? `rgb(${color})` : '#94a3b8'} strokeWidth={2}
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <Rect x="3" y="6" width="18" height="14" rx="3" fill={active ? `rgba(${color},0.12)` : 'none'} />
+        <Circle cx="8.5" cy="11.5" r="1.5" fill={active ? `rgb(${color})` : '#94a3b8'} />
+        <Circle cx="15.5" cy="11.5" r="1.5" fill={active ? `rgb(${color})` : '#94a3b8'} />
+        <Path d="M12 6V3" />
+        <Path d="M9 3h6" />
+        <Path d="M6 20v2" />
+        <Path d="M18 20v2" />
+        <Path d="M8.5 15.5c.8.8 2 1.3 3.5 1.3s2.7-.5 3.5-1.3" />
+        <Path d="M2 10.5h1" />
+        <Path d="M21 10.5h1" />
       </Svg>
     ),
   },
@@ -95,6 +109,8 @@ const BottomNavBar = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const activePage = route.name;
+  const { user } = useAuth();
+  const userPhoto = user?.photo;
 
   // Scale animations per tab
   const scaleAnims = useRef(TABS.map(() => new Animated.Value(1))).current;
@@ -155,11 +171,17 @@ const BottomNavBar = () => {
                 ]}
                 activeOpacity={0.8}
               >
+                {tab.name === 'Profile' && userPhoto ? (
+                  <View style={[styles.profileIconWrap, isActive && styles.profileIconActive]}>
+                    <Image source={{ uri: userPhoto }} style={styles.profileIconImg} contentFit="cover" />
+                  </View>
+                ) : (
                 <IconComp
                   active={isActive}
-                  size={screenWidth < 375 ? 18 : 22}
+                  size={BASE_SIZES[tab.name] || 20}
                   color={colorStr}
                 />
+                )}
               </TouchableOpacity>
             </Animated.View>
           );
@@ -214,6 +236,26 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'transparent',
+  },
+  profileIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  profileIconActive: {
+    shadowColor: 'rgb(56,189,248)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  profileIconImg: {
+    width: '100%',
+    height: '100%',
+    transform: [{ scale: 1.6 }],
   },
 });
 

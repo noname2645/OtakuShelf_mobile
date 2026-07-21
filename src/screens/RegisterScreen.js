@@ -5,12 +5,30 @@ import {
   Animated, Dimensions, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
+const appIcon = require('../../assets/otakushelf_app_icon.png');
 const { width, height } = Dimensions.get('window');
+
+// ─── Floating orb animation helper ──────────────────────────────────────────────
+const useFloatingAnimation = (duration = 3000) => {
+  const value = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(value, { toValue: 1, duration: duration, useNativeDriver: true }),
+        Animated.timing(value, { toValue: 0, duration: duration, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return value;
+};
 
 // ─── Toast (same as LoginScreen) ─────────────────────────────────────────────
 const Toast = ({ message, type }) => {
@@ -43,10 +61,19 @@ const Toast = ({ message, type }) => {
 };
 
 // ─── InputField (same as LoginScreen) ────────────────────────────────────────
-const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, editable }) => {
+const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, editable, entranceDelay = 0 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [focused, setFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
+  const fieldOpacity = useRef(new Animated.Value(0)).current;
+  const fieldY = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fieldOpacity, { toValue: 1, duration: 450, delay: entranceDelay, useNativeDriver: true }),
+      Animated.timing(fieldY, { toValue: 0, duration: 450, delay: entranceDelay, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   const onFocus = () => {
     setFocused(true);
@@ -60,7 +87,7 @@ const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, k
   const borderColor = borderAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.1)', '#a855f7'] });
 
   return (
-    <Animated.View style={[styles.inputWrapper, { borderColor }]}>
+    <Animated.View style={[styles.inputWrapper, { borderColor, opacity: fieldOpacity, transform: [{ translateY: fieldY }] }]}>
       <Ionicons name={icon} size={18} color={focused ? '#a855f7' : 'rgba(255,255,255,0.4)'} style={styles.inputIcon} />
       <TextInput
         style={styles.input}
@@ -129,16 +156,22 @@ const RegisterScreen = ({ navigation }) => {
   const [toast, setToast] = useState({ message: '', type: 'error' });
   const { login, API } = useAuth();
 
+  // Floating animations
+  const orb1Y = useFloatingAnimation(2800);
+  const orb2Y = useFloatingAnimation(3400);
+  const orb3Y = useFloatingAnimation(2500);
   // Entrance animations
   const cardOpacity = useRef(new Animated.Value(0)).current;
   const cardY = useRef(new Animated.Value(40)).current;
   const iconScale = useRef(new Animated.Value(0)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(cardOpacity, { toValue: 1, duration: 550, useNativeDriver: true }),
       Animated.spring(cardY, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true }),
       Animated.spring(iconScale, { toValue: 1, delay: 300, tension: 60, friction: 8, useNativeDriver: true }),
+      Animated.timing(glowOpacity, { toValue: 1, duration: 800, delay: 400, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -155,8 +188,17 @@ const RegisterScreen = ({ navigation }) => {
     if (!emailRegex.test(email.trim())) {
       showToast('Enter a valid email address'); return false;
     }
-    if (password.length < 6) {
-      showToast('Password must be at least 6 characters'); return false;
+    if (password.length < 8) {
+      showToast('Password must be at least 8 characters'); return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+      showToast('Password must include an uppercase letter'); return false;
+    }
+    if (!/[0-9]/.test(password)) {
+      showToast('Password must include a number'); return false;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      showToast('Password must include a special character'); return false;
     }
     if (password !== confirmPassword) {
       showToast('Passwords do not match'); return false;
@@ -168,12 +210,10 @@ const RegisterScreen = ({ navigation }) => {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      // Step 1: Register
       await axios.post(`${API}/auth/register`, { email: email.trim(), password }, {
         withCredentials: true, timeout: 60000,
       });
 
-      // Step 2: Auto-login
       const loginRes = await axios.post(`${API}/auth/login`, { email: email.trim(), password }, {
         withCredentials: true, timeout: 60000,
       });
@@ -201,6 +241,9 @@ const RegisterScreen = ({ navigation }) => {
     }
   };
 
+  const orb1TranslateY = orb1Y.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
+  const orb2TranslateY = orb2Y.interpolate({ inputRange: [0, 1], outputRange: [0, 25] });
+  const orb3TranslateY = orb3Y.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -208,9 +251,9 @@ const RegisterScreen = ({ navigation }) => {
       {/* Background */}
       <View style={StyleSheet.absoluteFill}>
         <LinearGradient colors={['#0d0f1a', '#0d0f1a']} style={StyleSheet.absoluteFill} />
-        <View style={[styles.orb, styles.orb1]} />
-        <View style={[styles.orb, styles.orb2]} />
-        <View style={[styles.orb, styles.orb3]} />
+        <Animated.View style={[styles.orb, styles.orb1, { transform: [{ translateY: orb1TranslateY }] }]} />
+        <Animated.View style={[styles.orb, styles.orb2, { transform: [{ translateY: orb2TranslateY }] }]} />
+        <Animated.View style={[styles.orb, styles.orb3, { transform: [{ translateY: orb3TranslateY }] }]} />
       </View>
 
       {/* Toast */}
@@ -220,6 +263,9 @@ const RegisterScreen = ({ navigation }) => {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardY }] }]}>
+
+            {/* Card glow */}
+            <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]} />
 
             {/* Top accent — purple for register */}
             <LinearGradient
@@ -237,7 +283,7 @@ const RegisterScreen = ({ navigation }) => {
             {/* Floating icon */}
             <Animated.View style={[styles.iconBadgeWrapper, { transform: [{ scale: iconScale }] }]}>
               <LinearGradient colors={['#a855f7', '#ff6b6b']} style={styles.iconBadge}>
-                <Text style={styles.iconBadgeEmoji}>🎬</Text>
+                <Image source={appIcon} style={styles.iconBadgeImage} contentFit="cover" />
               </LinearGradient>
               <View style={[styles.iconBadgeGlow, { backgroundColor: 'rgba(168,85,247,0.18)' }]} />
             </Animated.View>
@@ -250,16 +296,16 @@ const RegisterScreen = ({ navigation }) => {
 
             {/* Fields */}
             <View style={styles.fieldGroup}>
-              <InputField icon="mail-outline" placeholder="Enter your email" value={email} onChangeText={setEmail} keyboardType="email-address" editable={!isLoading} />
+              <InputField icon="mail-outline" placeholder="Enter your email" value={email} onChangeText={setEmail} keyboardType="email-address" editable={!isLoading} entranceDelay={100} />
             </View>
 
             <View style={styles.fieldGroup}>
-              <InputField icon="key-outline" placeholder="Create a password (min 6 chars)" value={password} onChangeText={setPassword} secureTextEntry editable={!isLoading} />
+              <InputField icon="key-outline" placeholder="Create a password (min 8 chars)" value={password} onChangeText={setPassword} secureTextEntry editable={!isLoading} entranceDelay={200} />
               <PasswordStrength password={password} />
             </View>
 
             <View style={styles.fieldGroup}>
-              <InputField icon="shield-checkmark-outline" placeholder="Confirm your password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry editable={!isLoading} />
+              <InputField icon="shield-checkmark-outline" placeholder="Confirm your password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry editable={!isLoading} entranceDelay={300} />
               {confirmPassword.length > 0 && (
                 <View style={styles.matchRow}>
                   <Ionicons
@@ -275,21 +321,18 @@ const RegisterScreen = ({ navigation }) => {
             </View>
 
             {/* Register button */}
-            <TouchableOpacity onPress={handleRegister} disabled={isLoading} activeOpacity={0.85} style={styles.primaryBtn}>
-              <LinearGradient
-                colors={isLoading ? ['#888', '#666'] : ['#eb9b08', '#e07b00']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.primaryBtnInner}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#000" size="small" />
-                ) : (
-                  <>
-                    <Text style={[styles.primaryBtnText, { color: '#000' }]}>Begin Adventure</Text>
-                    <Text style={[styles.primaryBtnArrow, { color: '#000' }]}>→</Text>
-                  </>
-                )}
-              </LinearGradient>
+            <TouchableOpacity onPress={handleRegister} disabled={isLoading} activeOpacity={0.85} style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}>
+              {isLoading ? (
+                <View style={styles.primaryBtnInner}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={[styles.primaryBtnText, { color: '#fff' }]}>Signing Up...</Text>
+                </View>
+              ) : (
+                <View style={styles.primaryBtnInner}>
+                  <Text style={[styles.primaryBtnText, { color: '#fff' }]}>Register</Text>
+                  <Text style={[styles.primaryBtnArrow, { color: '#fff' }]}>→</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Divider */}
@@ -314,8 +357,8 @@ const RegisterScreen = ({ navigation }) => {
             <View style={styles.footer}>
               <View style={styles.footerDivider} />
               <Text style={styles.footerText}>
-                Already have an account?{'  '}
-                <Text style={[styles.footerLink, { color: '#ff6b6b' }]} onPress={() => navigation.navigate('Login')}>
+                Already part of the community?{'  '}
+                <Text style={[styles.footerLink, { color: '#c084fc' }]} onPress={() => navigation.navigate('Login')}>
                   Login Here →
                 </Text>
               </Text>
@@ -335,8 +378,6 @@ const styles = StyleSheet.create({
   orb1: { width: 420, height: 420, top: -120, left: -100, backgroundColor: 'rgba(168,85,247,0.2)' },
   orb2: { width: 350, height: 350, bottom: -80, right: -80, backgroundColor: 'rgba(255,107,107,0.2)' },
   orb3: { width: 250, height: 250, top: '40%', left: '55%', backgroundColor: 'rgba(255,166,0,0.1)' },
-  floatingEmoji: { position: 'absolute', fontSize: 26, opacity: 0.18 },
-
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 20, paddingTop: 60 },
 
   card: {
@@ -347,6 +388,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 24 },
     shadowOpacity: 0.55, shadowRadius: 60, elevation: 20,
     marginBottom: 20,
+  },
+  cardGlow: {
+    position: 'absolute', top: -40, alignSelf: 'center',
+    width: 200, height: 80, borderRadius: 100,
+    backgroundColor: 'rgba(168,85,247,0.12)',
+    shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4, shadowRadius: 60, elevation: 0,
   },
   cardAccentLine: {
     position: 'absolute', top: 0, left: '20%', right: '20%',
@@ -368,7 +416,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#a855f7', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 24, elevation: 12,
   },
-  iconBadgeEmoji: { fontSize: 28 },
+  iconBadgeImage: { width: 64, height: 64, borderRadius: 32 },
   iconBadgeGlow: { position: 'absolute', inset: -8, borderRadius: 40 },
 
   heading: { alignItems: 'center', marginBottom: 28 },
@@ -400,7 +448,12 @@ const styles = StyleSheet.create({
   matchRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
   matchText: { fontSize: 12, fontWeight: '600' },
 
-  primaryBtn: { borderRadius: 50, overflow: 'hidden', marginTop: 8, marginBottom: 4 },
+  // Primary button
+  primaryBtn: {
+    borderRadius: 50, overflow: 'hidden', marginTop: 8, marginBottom: 4,
+    backgroundColor: '#a855f7',
+  },
+  primaryBtnDisabled: { backgroundColor: '#666' },
   primaryBtnInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, gap: 10,
@@ -423,11 +476,13 @@ const styles = StyleSheet.create({
   },
   googleText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 
+  // Footer
   footer: { marginTop: 24 },
   footerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginBottom: 22 },
   footerText: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 14 },
   footerLink: { fontWeight: '700' },
 
+  // Toast
   toast: {
     position: 'absolute', top: 55, right: 16,
     flexDirection: 'row', alignItems: 'center', gap: 8,

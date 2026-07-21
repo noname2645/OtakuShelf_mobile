@@ -3,12 +3,12 @@ import {
     View,
     Text,
     TouchableOpacity,
-    Image,
     Modal,
     TouchableWithoutFeedback,
     StyleSheet,
     Platform
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -39,7 +39,7 @@ const ProfilePill = ({ user, logout, navigation }) => {
                     {/* Avatar Area */}
                     <View style={localStyles.avatarContainer}>
                         {user.photo ? (
-                            <Image source={{ uri: user.photo }} style={localStyles.avatar} />
+                            <Image source={{ uri: user.photo }} style={localStyles.avatar} contentFit="cover" cachePolicy="memory-disk" />
                         ) : (
                             <View style={localStyles.initialsContainer}>
                                 <Text style={localStyles.initialsText}>{getInitials(user.email)}</Text>
