@@ -7,7 +7,7 @@
     "icon": "./assets/otakushelf_app_icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/otakushelf_app_icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0a0f1e"
     },
