@@ -545,7 +545,7 @@ const ProfileScreen = ({ navigation }) => {
         {/* Cover */}
         <View style={styles.coverContainer}>
           <Image source={{ uri: profileData.coverImage || "https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1600&q=80" }} style={styles.coverImage} />
-          <LinearGradient colors={['transparent', 'rgba(10,15,30,0.9)', '#0a0f1e']} style={styles.coverGradient} />
+          <LinearGradient colors={['transparent', 'rgba(3,7,18,0.9)', '#030712']} style={styles.coverGradient} />
           <TouchableOpacity style={styles.changeCoverBtn} onPress={handleCoverUpload}><Ionicons name="camera-outline" size={16} color="#fff" /><Text style={styles.changeCoverText}> Change Cover</Text></TouchableOpacity>
         </View>
 
@@ -554,7 +554,7 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.avatarSection}>
             <View style={styles.avatarWrapper}>
               {profileData.avatar ? <Image source={{ uri: profileData.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.placeholderAvatar]}><Text style={styles.placeholderAvatarText}>{profileData.name.charAt(0)}</Text></View>}
-              <TouchableOpacity style={styles.changeAvatarBtn} onPress={handleImageUpload}><Ionicons name="camera" size={18} color="#fff" /></TouchableOpacity>
+              <TouchableOpacity style={styles.changeAvatarBtn} onPress={handleImageUpload}><Ionicons name="camera" size={16} color="#030712" /></TouchableOpacity>
             </View>
           </View>
 
@@ -571,12 +571,14 @@ const ProfileScreen = ({ navigation }) => {
           ) : (
             <View style={styles.profileInfo}>
               <Text style={styles.name}>{profileData.name}</Text>
-              <Text style={styles.username}>{profileData.username}</Text>
-              <Text style={styles.bio}>{profileData.bio}</Text>
-              <View style={styles.joinedDate}><Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.6)" /><Text style={styles.joinedText}> Joined {profileData.joinDate}</Text></View>
+              <Text style={styles.username}>@{profileData.username}</Text>
+              {profileData.bio ? <View style={styles.bioRow}><View style={styles.bioAccent} /><Text style={styles.bio}>{profileData.bio}</Text></View> : null}
+              <View style={styles.metaRow}>
+                <View style={styles.joinedDate}><Ionicons name="calendar-outline" size={13} color="rgba(255,255,255,0.4)" /><Text style={styles.joinedText}> Joined {profileData.joinDate}</Text></View>
+              </View>
               <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}><Ionicons name="pencil" size={16} color="#fff" /><Text style={styles.btnText}> Edit Profile</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.shareBtn} onPress={handleShareProfile}><Ionicons name="share-social" size={16} color="#fff" /></TouchableOpacity>
+                <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}><Ionicons name="pencil" size={15} color="#030712" /><Text style={styles.editBtnText}> Edit Profile</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.shareBtn} onPress={handleShareProfile}><Ionicons name="share-social" size={16} color="#ffae00" /></TouchableOpacity>
               </View>
             </View>
           )}
@@ -702,26 +704,31 @@ const styles = StyleSheet.create({
   changeCoverBtn: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', alignItems: 'center', padding: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   changeCoverText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
-  headerContent: { flexDirection: 'row', alignItems: 'flex-start', marginTop: -140, paddingHorizontal: 20, marginBottom: 20 }, // Fixed layout
-  headerContentEditing: { flexDirection: 'column', alignItems: 'center', marginTop: -50 }, // Editing layout
 
-  avatarSection: { marginRight: 20, position: 'relative', marginBottom: 0 },
-  avatarWrapper: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: 'rgba(255,107,107,0.4)', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0f1e', shadowColor: "#ff6b6b", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 10 },
-  avatar: { width: 112, height: 112, borderRadius: 56 },
-  placeholderAvatar: { backgroundColor: '#ff6b6b', justifyContent: 'center', alignItems: 'center' },
-  placeholderAvatarText: { fontSize: 40, color: '#fff', fontWeight: 'bold' },
-  changeAvatarBtn: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#4ecdc4', width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#0a0f1e' },
+  headerContent: { flexDirection: 'row', alignItems: 'flex-start', marginTop: -140, paddingHorizontal: 16, marginBottom: 20 },
+  headerContentEditing: { flexDirection: 'column', alignItems: 'center', marginTop: -50 },
 
-  profileInfo: { flex: 1, flexShrink: 1, alignItems: 'flex-start', paddingTop: 10 },
-  name: { fontSize: 24, fontWeight: '800', color: '#fff', marginBottom: 2, textAlign: 'left' },
-  username: { fontSize: 14, color: 'rgba(255,255,255,0.7)', marginBottom: 8, textAlign: 'left' },
-  bio: { fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'left', lineHeight: 20, marginBottom: 12, paddingHorizontal: 0, paddingVertical: 0, backgroundColor: 'transparent', borderRadius: 0, borderLeftWidth: 0, marginRight: 10 },
-  joinedDate: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 15, alignSelf: 'flex-start' },
-  joinedText: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+  avatarSection: { marginRight: 16, position: 'relative', marginBottom: 0 },
+  avatarWrapper: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: 'rgba(255,174,0,0.5)', justifyContent: 'center', alignItems: 'center', backgroundColor: '#030712', shadowColor: "#ffae00", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  avatar: { width: 94, height: 94, borderRadius: 47 },
+  placeholderAvatar: { backgroundColor: '#ffae00', justifyContent: 'center', alignItems: 'center' },
+  placeholderAvatarText: { fontSize: 36, color: '#030712', fontWeight: 'bold' },
+  changeAvatarBtn: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#ffae00', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#030712', shadowColor: "#ffae00", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 8, elevation: 6 },
 
-  actionButtons: { flexDirection: 'row', gap: 10, width: '100%', justifyContent: 'flex-start' },
-  editProfileBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ff6b6b', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, justifyContent: 'center' },
-  shareBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  profileInfo: { flex: 1, flexShrink: 1, alignItems: 'flex-start', paddingTop: 6 },
+  name: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 1, textAlign: 'left', letterSpacing: 0.3 },
+  username: { fontSize: 13, color: '#ffae00', marginBottom: 8, textAlign: 'left', fontWeight: '600' },
+  bioRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, marginRight: 4 },
+  bioAccent: { width: 3, height: '100%', backgroundColor: '#ffae00', borderRadius: 2, marginRight: 10, minHeight: 20 },
+  bio: { fontSize: 13, color: 'rgba(255,255,255,0.75)', textAlign: 'left', lineHeight: 19, flex: 1 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  joinedDate: { flexDirection: 'row', alignItems: 'center' },
+  joinedText: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 4 },
+
+  actionButtons: { flexDirection: 'row', gap: 8, width: '100%', justifyContent: 'flex-start' },
+  editProfileBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffae00', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, justifyContent: 'center' },
+  editBtnText: { color: '#030712', fontWeight: '700', fontSize: 13 },
+  shareBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,174,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   btnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
 
   mainContainer: { paddingHorizontal: 20, marginTop: 20 },
@@ -755,7 +762,7 @@ const styles = StyleSheet.create({
   emptyChart: { alignItems: 'center', justifyContent: 'center', height: 200 },
   emptyChartText: { color: 'rgba(255,255,255,0.4)', marginTop: 10 },
 
-  editForm: { width: '90%', alignSelf: 'center', paddingHorizontal: 10, backgroundColor: 'rgba(10, 15, 30, 0.95)', paddingVertical: 20, borderRadius: 16, marginTop: 20 },
+  editForm: { width: '90%', alignSelf: 'center', paddingHorizontal: 10, backgroundColor: '#030712', paddingVertical: 20, borderRadius: 16, marginTop: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   label: { color: '#fff', fontWeight: '600', marginBottom: 8, marginTop: 15 },
   input: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 15, color: '#fff', fontSize: 16 },
   textArea: { minHeight: 100, textAlignVertical: 'top' },
