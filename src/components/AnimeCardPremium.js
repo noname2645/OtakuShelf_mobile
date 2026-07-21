@@ -82,7 +82,7 @@ const GenreIcon = React.memo(() => (
   </Svg>
 ));
 
-const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false, isBanner = false }) => {
+const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false, isBanner = false, onToggleFavorite: onToggleFavProp, onToggleWatchlist: onToggleWlProp }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const { isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded } = usePreferences();
@@ -97,13 +97,19 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false, is
 
   const handleToggleWatchlist = useCallback((e) => {
     e.stopPropagation?.();
-    if (anime?.id) toggleWatchlist(String(anime.id));
-  }, [anime?.id, toggleWatchlist]);
+    const id = String(anime?.id);
+    if (!id) return;
+    if (onToggleWlProp) onToggleWlProp(anime);
+    else toggleWatchlist(id);
+  }, [anime, toggleWatchlist, onToggleWlProp]);
 
   const handleToggleFavorite = useCallback((e) => {
     e.stopPropagation?.();
-    if (anime?.id) toggleFavorite(String(anime.id));
-  }, [anime?.id, toggleFavorite]);
+    const id = String(anime?.id);
+    if (!id) return;
+    if (onToggleFavProp) onToggleFavProp(anime);
+    else toggleFavorite(id);
+  }, [anime, toggleFavorite, onToggleFavProp]);
 
   const handlePress = useCallback(() => {
     if (anime) onPress(anime);
@@ -137,7 +143,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false, is
     <Animated.View
       style={[
         styles.cardOuter,
-        isGrid ? styles.cardGrid : isBanner ? styles.cardBanner : { width: cardW, height: cardH },
+        isGrid ? styles.cardGrid : isBanner ? [styles.cardBanner, { height: cardH }] : { width: cardW, height: cardH },
         { transform: [{ scale: scaleAnim }] },
       ]}
     >
@@ -251,7 +257,6 @@ const styles = StyleSheet.create({
   },
   cardBanner: {
     width: '100%',
-    height: 200,
     marginBottom: 16,
   },
   cardTouch: { flex: 1 },

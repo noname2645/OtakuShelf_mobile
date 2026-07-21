@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
+import { usePreferences } from '../contexts/PreferenceContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Svg, G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import axios from 'axios';
@@ -279,6 +280,38 @@ const ProfileScreen = ({ navigation }) => {
   // Modal State
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedAnimeForDetails, setSelectedAnimeForDetails] = useState(null);
+
+  const { toggleFavorite } = usePreferences();
+
+  const handleToggleFavorite = useCallback(async (anime) => {
+    const uid = user?._id || user?.id;
+    const animeId = String(anime?.id || anime?.animeId || anime?._id);
+    if (!uid || !animeId) return;
+    toggleFavorite(animeId);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      await axios.put(`${API}/api/list/${uid}/${animeId}`, { favorite: true }, { headers });
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        try {
+          const token = await AsyncStorage.getItem("token");
+          await axios.post(`${API}/api/list/${uid}`, {
+            animeId: Number(animeId),
+            title: typeof anime.title === 'string' ? anime.title : anime.title?.romaji || anime.title?.english || 'Unknown',
+            coverImage: { large: anime.image || anime.coverImage?.large || anime.coverImage?.extraLarge || '' },
+            totalEpisodes: anime.episodes || 0,
+            status: 'planning',
+            favorite: true,
+            format: anime.format || 'TV',
+          }, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        } catch (_) {}
+      }
+    }
+    loadProfileData();
+  }, [user, API, toggleFavorite]);
 
   const fetchAnimeDetails = async (anime) => {
     // Basic show first
@@ -545,7 +578,7 @@ const ProfileScreen = ({ navigation }) => {
         {/* Cover */}
         <View style={styles.coverContainer}>
           <Image source={{ uri: profileData.coverImage || "https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1600&q=80" }} style={styles.coverImage} />
-          <LinearGradient colors={['transparent', 'rgba(3,7,18,0.9)', '#030712']} style={styles.coverGradient} />
+          <LinearGradient colors={['rgba(3,7,18,0.6)', 'rgba(3,7,18,0.3)', 'rgba(3,7,18,0.85)', '#030712']} locations={[0, 0.3, 0.6, 1]} style={StyleSheet.absoluteFill} />
           <TouchableOpacity style={styles.changeCoverBtn} onPress={handleCoverUpload}><Ionicons name="camera-outline" size={16} color="#fff" /><Text style={styles.changeCoverText}> Change Cover</Text></TouchableOpacity>
         </View>
 
@@ -610,11 +643,11 @@ const ProfileScreen = ({ navigation }) => {
                 const norm = normalizeAnime(anime);
                 if (!norm) return null;
                 if (i === 0) {
-                  return <AnimeCardPremium key={i} anime={norm} index={i} onPress={fetchAnimeDetails} isBanner />;
+                  return <AnimeCardPremium key={i} anime={norm} index={i} onPress={fetchAnimeDetails} isBanner onToggleFavorite={handleToggleFavorite} />;
                 }
                 return (
                   <View key={i} style={styles.gridHalf}>
-                    <AnimeCardPremium anime={norm} index={i} onPress={fetchAnimeDetails} isGrid />
+                    <AnimeCardPremium anime={norm} index={i} onPress={fetchAnimeDetails} isGrid onToggleFavorite={handleToggleFavorite} />
                   </View>
                 );
               })}
@@ -632,7 +665,7 @@ const ProfileScreen = ({ navigation }) => {
                 if (!norm) return null;
                 return (
                   <View key={i} style={styles.gridHalf}>
-                    <AnimeCardPremium anime={norm} index={i} onPress={fetchAnimeDetails} isGrid />
+                    <AnimeCardPremium anime={norm} index={i} onPress={fetchAnimeDetails} isGrid onToggleFavorite={handleToggleFavorite} />
                   </View>
                 );
               })}
@@ -700,7 +733,7 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   coverContainer: { height: 300, width: '100%', position: 'relative' }, // Fixed 300
   coverImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  coverGradient: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 150 },
+
   changeCoverBtn: { position: 'absolute', top: 50, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', alignItems: 'center', padding: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   changeCoverText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 

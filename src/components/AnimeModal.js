@@ -21,7 +21,7 @@ import RelatedSection from './RelatedSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
-const MODAL_HEADER_HEIGHT = height * 0.30;
+const MODAL_HEADER_HEIGHT = Math.min(width * 0.5, 220);
 
 const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');

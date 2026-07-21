@@ -262,8 +262,7 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
   }
 
   const current = featuredAnime[currentIndex] || featuredAnime[0];
-  // Prefer bannerImage for hero (wider, cinematic)
-  const imageUrl = current?.bannerImage || current?.coverImage?.extraLarge || current?.coverImage?.large;
+  const imageUrl = current?.coverImage?.extraLarge || current?.coverImage?.large || current?.bannerImage;
   const title = current?.title || 'Unknown';
   const rawDesc = (current?.description || '').replace(/<[^>]*>/g, '');
   const desc = rawDesc.substring(0, 180);

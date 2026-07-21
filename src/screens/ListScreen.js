@@ -113,10 +113,16 @@ const ANIME_DETAILS_QUERY = `
   }
 `;
 
+const TabBtn = React.memo(({ tab, label, isActive, onPress }) => (
+  <TouchableOpacity style={[s.tabBtn, isActive && s.tabActive]} onPress={() => onPress(tab)}>
+    <Text style={[s.tabLabel, isActive && s.tabLabelActive]}>{label}</Text>
+  </TouchableOpacity>
+));
+
 // ─── Premium Anime Card ───────────────────────────────────────────────
 
 const PremiumAnimeCard = React.memo(({
-  anime, cardWidth, activeTab,
+  anime, cardWidth, status,
   onIncrement, onDecrement, onRating, onRemove, onStatusChange, onCardPress, onFavoriteToggle
 }) => {
   const [imgErr, setImgErr] = useState(false);
@@ -125,8 +131,8 @@ const PremiumAnimeCard = React.memo(({
   const totalEp = anime.totalEpisodes || anime.episodes || 24;
   const currEp = anime.episodesWatched || 0;
   const progress = totalEp > 0 ? Math.min((currEp / totalEp) * 100, 100) : 0;
-  const status = (anime.status || activeTab).toLowerCase();
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.watching;
+  const resolvedStatus = (status || anime.status || 'watching').toLowerCase();
+  const cfg = STATUS_CONFIG[resolvedStatus] || STATUS_CONFIG.watching;
   const isFav = anime.favorite || false;
 
   const imageUrl = useMemo(() => {
@@ -628,7 +634,7 @@ const ListScreen = () => {
           key={a._id || a.animeId}
           anime={a}
           cardWidth={CARD_W}
-          activeTab={activeTab}
+          status={a.status}
           onIncrement={handleIncrement}
           onDecrement={handleDecrement}
           onRating={handleRating}
@@ -638,9 +644,14 @@ const ListScreen = () => {
           onFavoriteToggle={handleFavoriteToggle}
         />
       ))}
-      {row.length === 1 && <View style={{ width: CARD_W }} />}
+      {row.length === 1 && <View style={s.cardSpacer} />}
     </View>
-  ), [activeTab, handleIncrement, handleDecrement, handleRating, handleRemove, handleStatusChange, handleCardPress, handleFavoriteToggle]);
+  ), [handleIncrement, handleDecrement, handleRating, handleRemove, handleStatusChange, handleCardPress, handleFavoriteToggle]);
+
+  const keyExtractor = useCallback((item, idx) => {
+    const id = item[0]?._id || item[0]?.animeId;
+    return id ? `row-${id}` : `idx-${idx}`;
+  }, []);
 
   const currentList = animeList[activeTab] || [];
   const showImporting = importing || !!importProgress;
@@ -673,19 +684,9 @@ const ListScreen = () => {
       {/* ── Tabs ── */}
       <View style={s.tabsWrap}>
         <View style={s.tabsRow}>
-          {TAB_ORDER.map(tab => {
-            const cfg = STATUS_CONFIG[tab];
-            const isActive = activeTab === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[s.tabBtn, isActive && s.tabActive]}
-                onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[s.tabLabel, isActive && s.tabLabelActive]}>{cfg.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+          {TAB_ORDER.map(tab => (
+            <TabBtn key={tab} tab={tab} label={STATUS_CONFIG[tab].label} isActive={activeTab === tab} onPress={setActiveTab} />
+          ))}
         </View>
       </View>
 
@@ -706,14 +707,14 @@ const ListScreen = () => {
         <Animated.SectionList
           style={s.list}
           sections={sections}
-          keyExtractor={(item, idx) => (item[0]?._id || item[0]?.animeId || idx).toString()}
+          keyExtractor={keyExtractor}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           contentContainerStyle={s.listContent}
           stickySectionHeadersEnabled={false}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollYList } } }],
-            { useNativeDriver: false }
+            { useNativeDriver: true }
           )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ff5900" colors={['#ff5900']} />}
           ListEmptyComponent={
@@ -729,8 +730,8 @@ const ListScreen = () => {
           }
           initialNumToRender={12}
           maxToRenderPerBatch={20}
-          windowSize={21}
-          removeClippedSubviews={false}
+          windowSize={11}
+          removeClippedSubviews={true}
         />
       )}
 
@@ -926,6 +927,7 @@ const s = StyleSheet.create({
 
 
   cardsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  cardSpacer: { width: CARD_W },
 
   // Card
   cardOuter: {
