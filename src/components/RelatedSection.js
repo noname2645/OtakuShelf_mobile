@@ -11,7 +11,7 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
-import AnimeCardPremium from './AnimeCardPremium';
+import AnimeCardPremium, { CARD_WIDTH, CARD_HEIGHT } from './AnimeCardPremium';
 
 const anilistClient = axios.create({
   baseURL: 'https://graphql.anilist.co',
@@ -136,6 +136,7 @@ const normalizeAniListNode = (edge) => {
     averageScore: node.averageScore,
     format: node.format,
     genres: node.genres || [],
+    studios: node.studios,
     trailer: node.trailer,
     startDate: node.startDate,
     endDate: node.endDate,
@@ -223,7 +224,11 @@ const RelatedSection = ({ animeId, animeMalId, onSelect }) => {
     };
   }, [animeId, fetchFromAniList]);
 
-  const grouped = useMemo(() => groupByRelation(related), [related]);
+  const grouped = useMemo(() => {
+    const g = groupByRelation(related);
+    const ORDER = ['PREQUEL', 'SEQUEL'];
+    return Object.entries(g).sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b));
+  }, [related]);
 
   if (loading) {
     return (
@@ -246,29 +251,43 @@ const RelatedSection = ({ animeId, animeMalId, onSelect }) => {
     );
   }
 
+  const allItems = useMemo(() => {
+    const items = [];
+    grouped.forEach(([relationType, animeList], gi) => {
+      if (gi > 0) items.push({ isDivider: true, label: formatRelationType(relationType) });
+      animeList.forEach(a => items.push({ isDivider: false, ...a }));
+    });
+    return items;
+  }, [grouped]);
+
   return (
     <View style={styles.container}>
-      {Object.entries(grouped).map(([relationType, animeList]) => (
-        <View key={relationType} style={styles.group}>
-          <Text style={styles.groupTitle}>{formatRelationType(relationType)}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recsScroll}>
-            {animeList.map((animeItem, index) => (
-              <View key={`${animeItem.id || index}-${relationType}`} style={styles.recCard}>
-                <AnimeCardPremium
-                  anime={animeItem}
-                  index={index}
-                  onPress={(item) => onSelect && onSelect({
-                    ...item,
-                    startDate: item.startDate,
-                    endDate: item.endDate,
-                  })}
-                  isGrid
-                />
+      <Text style={styles.groupTitle}>Sequels &amp; Prequels</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recsScroll}>
+        {allItems.map((item, idx) => {
+          if (item.isDivider) {
+            return (
+              <View key={`div-${idx}`} style={styles.divider}>
+                <Text style={styles.dividerText}>{item.label}</Text>
               </View>
-            ))}
-          </ScrollView>
-        </View>
-      ))}
+            );
+          }
+          return (
+            <View key={item.id || idx} style={styles.recCard}>
+              <AnimeCardPremium
+                anime={item}
+                index={idx}
+                onPress={(sel) => onSelect && onSelect({
+                  ...sel,
+                  startDate: sel.startDate,
+                  endDate: sel.endDate,
+                })}
+                isGrid
+              />
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 };
@@ -277,25 +296,38 @@ const styles = StyleSheet.create({
   container: {
     marginTop: 10,
   },
-  group: {
-    marginBottom: 16,
-  },
   groupTitle: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   recsScroll: {
     paddingRight: 10,
+    paddingBottom: 4,
   },
   recCard: {
-    width: 140,
-    height: 213,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
     borderRadius: 20,
     overflow: 'hidden',
     marginRight: 12,
   },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginRight: 12,
+    paddingHorizontal: 4,
+  },
+  dividerText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
   loading: {
     paddingVertical: 16,
     alignItems: 'center',

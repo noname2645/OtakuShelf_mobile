@@ -344,9 +344,8 @@ const AIScreen = ({ navigation }) => {
   const handlePromptClick = (prompt) => setInput(prompt);
 
   const handleAnimePress = async (anime) => {
-    setSelectedAnime(anime);
-    setModalVisible(true);
-    if (!anime.startDate || !anime.endDate) {
+    const needsEnrich = !anime.startDate || !anime.endDate || !anime.studios || !anime.description;
+    if (needsEnrich && anime.id) {
       try {
         const res = await fetch('https://graphql.anilist.co', {
           method: 'POST',
@@ -357,9 +356,15 @@ const AIScreen = ({ navigation }) => {
           }),
         });
         const media = (await res.json())?.data?.Media;
-        if (media) setSelectedAnime(prev => ({ ...prev, ...media, title: media.title || prev.title, coverImage: media.coverImage || prev.coverImage }));
+        if (media) {
+          setSelectedAnime({ ...anime, ...media, title: media.title || anime.title, coverImage: media.coverImage || anime.coverImage });
+          setModalVisible(true);
+          return;
+        }
       } catch (_) {}
     }
+    setSelectedAnime(anime);
+    setModalVisible(true);
   };
 
   const handleClearChat = () => {

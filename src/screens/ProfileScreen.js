@@ -314,32 +314,36 @@ const ProfileScreen = ({ navigation }) => {
   }, [user, API, toggleFavorite]);
 
   const fetchAnimeDetails = async (anime) => {
-    // Basic show first
-    const basicAnime = {
+    const aniListId = anime.id || anime.animeId;
+    if (aniListId) {
+      try {
+        const response = await axios.post('https://graphql.anilist.co', {
+          query: ANIME_DETAILS_QUERY,
+          variables: { id: aniListId }
+        });
+        const media = response.data.data.Media;
+        if (media) {
+          setSelectedAnimeForDetails({
+            ...anime,
+            id: anime.id || anime.animeId || anime._id,
+            title: typeof anime.title === 'string' ? { romaji: anime.title } : anime.title,
+            coverImage: anime.image ? { large: anime.image } : anime.coverImage,
+            ...media,
+          });
+          setDetailsModalVisible(true);
+          return;
+        }
+      } catch (e) {
+        console.log("Failed to fetch rich details", e);
+      }
+    }
+    setSelectedAnimeForDetails({
       ...anime,
       id: anime.id || anime.animeId || anime._id,
       title: typeof anime.title === 'string' ? { romaji: anime.title } : anime.title,
-      coverImage: anime.image ? { large: anime.image } : anime.coverImage
-    };
-    setSelectedAnimeForDetails(basicAnime);
+      coverImage: anime.image ? { large: anime.image } : anime.coverImage,
+    });
     setDetailsModalVisible(true);
-
-    // Fetch Rich Data
-    const aniListId = anime.id || anime.animeId;
-    if (!aniListId) return;
-
-    try {
-      const response = await axios.post('https://graphql.anilist.co', {
-        query: ANIME_DETAILS_QUERY,
-        variables: { id: aniListId }
-      });
-      const media = response.data.data.Media;
-      if (media) {
-        setSelectedAnimeForDetails(prev => ({ ...prev, ...media }));
-      }
-    } catch (e) {
-      console.log("Failed to fetch rich details", e);
-    }
   };
 
   const prepareChartData = useCallback((userGenres) => {

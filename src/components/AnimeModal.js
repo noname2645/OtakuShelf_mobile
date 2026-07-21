@@ -21,7 +21,7 @@ import RelatedSection from './RelatedSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
-const MODAL_HEADER_HEIGHT = Math.min(width * 0.5, 220);
+  const MODAL_HEADER_HEIGHT = Math.min(width * 0.5, 220);
 
 const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');
@@ -213,7 +213,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
               styles.header,
               {
                 opacity: scrollY.interpolate({
-                  inputRange: [0, 150],
+                  inputRange: [0, 300],
                   outputRange: [1, 0],
                   extrapolate: 'clamp',
                 }),
@@ -315,14 +315,14 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
                 onPress={() => addToList('watching')}
                 disabled={isAddingToList}
               >
-                {isAddingToList ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="play" size={15} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.actionBtnText}>Watching</Text>
-                  </>
-                )}
+                  {isAddingToList ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="play" size={13} color="#34d399" style={{ marginRight: 5 }} />
+                      <Text style={styles.actionBtnText}>Watching</Text>
+                    </>
+                  )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -330,7 +330,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
                 onPress={() => addToList('completed')}
                 disabled={isAddingToList}
               >
-                <Ionicons name="checkmark-done" size={16} color="#fff" style={{ marginRight: 6 }} />
+                <Ionicons name="checkmark-done" size={13} color="#60a5fa" style={{ marginRight: 5 }} />
                 <Text style={styles.actionBtnText}>Completed</Text>
               </TouchableOpacity>
 
@@ -339,7 +339,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
                 onPress={() => addToList('planned')}
                 disabled={isAddingToList}
               >
-                <Ionicons name="bookmark" size={14} color="#fff" style={{ marginRight: 6 }} />
+                <Ionicons name="bookmark" size={13} color="#fb923c" style={{ marginRight: 5 }} />
                 <Text style={styles.actionBtnText}>Plan</Text>
               </TouchableOpacity>
             </View>
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#030712',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    marginTop: Platform.OS === 'ios' ? 44 : 20,
+    marginTop: 0,
     overflow: 'hidden',
   },
   header: {
@@ -455,6 +455,9 @@ const styles = StyleSheet.create({
     right: 0,
     height: MODAL_HEADER_HEIGHT,
     zIndex: 2,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
   },
   bannerImage: {
     width: '100%',
@@ -571,7 +574,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     marginBottom: 20,
   },
   actionButton: {
@@ -579,26 +582,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   watchingBtn: {
-    backgroundColor: '#10b981',
-    flex: 1.2,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderColor: 'rgba(16,185,129,0.3)',
   },
   completedBtn: {
-    backgroundColor: '#3b82f6',
-    flex: 1.2,
+    backgroundColor: 'rgba(59,130,246,0.15)',
+    borderColor: 'rgba(59,130,246,0.3)',
   },
   plannedBtn: {
-    backgroundColor: '#f97316',
-    flex: 0.8,
+    backgroundColor: 'rgba(249,115,22,0.15)',
+    borderColor: 'rgba(249,115,22,0.3)',
   },
   actionBtnText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: 'OutfitRegular',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   tabContainer: {
     flexDirection: 'row',

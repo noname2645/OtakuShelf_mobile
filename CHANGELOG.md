@@ -19,7 +19,10 @@
 - **ProfileScreen**: Cover gradient bottom color updated from `#0a0f1e` to `#030712` to eliminate visible seam.
 - **AnimeCardPremium**: Heart/favorite toggle now calls backend API (PUT or POST to `/api/list`) in addition to local PreferenceContext, so favorites persist to server. Added `onToggleFavorite` and `onToggleWatchlist` prop support.
 - **ProfileScreen**: `handleToggleFavorite` re-fetches profile data after toggling favorite, ensuring the Favorite Anime grid always reflects server state regardless of ID format mismatches.
-- **AnimeModal**: Banner header height changed from `height * 0.30` to `Math.min(width * 0.5, 220)` for a more natural 2:1 aspect ratio that fits banner images better.
+
+- **ProfileScreen**: `fetchAnimeDetails` now enriches data from AniList BEFORE opening the modal — no more two-phase loading flicker.
+- **AIScreen**: `handleAnimePress` now enriches data before opening the modal — modal always displays complete data on first render.
+- **AnimeModal**: Removed `marginTop` from modal container (black strap above banner). Added `borderTopLeftRadius`/`borderTopRightRadius` + `overflow: hidden` to header so banner corners are rounded.
 
 ### Added
 - **CHANGELOG.md**: This file.

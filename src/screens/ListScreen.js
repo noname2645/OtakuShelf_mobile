@@ -28,7 +28,7 @@ import StarRating from '../components/StarRating';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
-const CARD_W = (width - 48) / 2;
+const CARD_W = (width - 40 - 14) / 2;
 const CARD_H = CARD_W * 1.5;
 
 const STATUS_CONFIG = {
@@ -911,7 +911,7 @@ const s = StyleSheet.create({
 
   // List
   list: { flex: 1 },
-  listContent: { paddingBottom: 100, paddingHorizontal: 12 },
+  listContent: { paddingBottom: 100, paddingHorizontal: 20 },
 
   // Month Header
   monthHeader: {
@@ -926,7 +926,7 @@ const s = StyleSheet.create({
   },
 
 
-  cardsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  cardsRow: { flexDirection: 'row', gap: 14, marginBottom: 14 },
   cardSpacer: { width: CARD_W },
 
   // Card
