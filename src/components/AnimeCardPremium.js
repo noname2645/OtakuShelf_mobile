@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import Svg, { Path, Polyline, Line, Rect, Polygon } from 'react-native-svg';
 import { usePreferences } from '../contexts/PreferenceContext';
 
 const { width } = Dimensions.get('window');
@@ -20,17 +21,78 @@ export const CARD_HEIGHT = CARD_WIDTH * 1.52;
 
 const blurhash = 'L5H2EC=PM+yV0gofqwt7jrRjwfRj';
 
+const StarIcon = () => (
+  <Svg width={10} height={10} viewBox="0 0 24 24" fill="#ff5900">
+    <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+  </Svg>
+);
+
+const HeartIcon = ({ filled }) => (
+  <Svg width={15} height={15} viewBox="0 0 24 24"
+    fill={filled ? '#ff2a5f' : 'none'}
+    stroke={filled ? '#ff2a5f' : 'rgba(255,255,255,0.7)'}
+    strokeWidth={2}
+  >
+    <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </Svg>
+);
+
+const WatchlistIcon = ({ active }) => (
+  <Svg width={12} height={12} viewBox="0 0 24 24"
+    fill={active ? '#ff5900' : 'none'}
+    stroke={active ? '#ff5900' : 'rgba(255,255,255,0.7)'}
+    strokeWidth={2}
+  >
+    <Path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </Svg>
+);
+
+const ShareIcon = () => (
+  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={2}>
+    <Path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <Polyline points="16 6 12 2 8 6" />
+    <Line x1="12" y1="2" x2="12" y2="15" />
+  </Svg>
+);
+
+const CalIcon = () => (
+  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
+    <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <Line x1="16" y1="2" x2="16" y2="6" />
+    <Line x1="8" y1="2" x2="8" y2="6" />
+    <Line x1="3" y1="10" x2="21" y2="10" />
+  </Svg>
+);
+
+const EpisodesIcon = () => (
+  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
+    <Polygon points="23 7 16 12 23 17 23 7" />
+    <Rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+  </Svg>
+);
+
+const GenreIcon = () => (
+  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#ff5900" strokeWidth={2}>
+    <Line x1="8" y1="6" x2="21" y2="6" />
+    <Line x1="8" y1="12" x2="21" y2="12" />
+    <Line x1="8" y1="18" x2="21" y2="18" />
+    <Line x1="3" y1="6" x2="3.01" y2="6" />
+    <Line x1="3" y1="12" x2="3.01" y2="12" />
+    <Line x1="3" y1="18" x2="3.01" y2="18" />
+  </Svg>
+);
+
 const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const { isFavorite, isWatchlisted, toggleFavorite, toggleWatchlist, loaded } = usePreferences();
 
   const handlePressIn = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true }).start();
+    Animated.timing(scaleAnim, { toValue: 0.95, duration: 50, useNativeDriver: true }).start();
   }, []);
 
   const handlePressOut = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+    Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }).start();
   }, []);
 
   const handleToggleWatchlist = useCallback((e) => {
@@ -108,7 +170,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
         <View style={styles.cardHeader}>
           {score ? (
             <View style={styles.ratingBadge}>
-              <Text style={{ color: '#ff5900', fontSize: 9 }}>★</Text>
+              <StarIcon />
               <Text style={styles.ratingText}>{score}</Text>
             </View>
           ) : null}
@@ -117,7 +179,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
             onPress={handleToggleFavorite}
             activeOpacity={0.8}
           >
-            <Text style={{ fontSize: 13, color: fav ? '#ff2a5f' : 'rgba(255,255,255,0.7)' }}>{fav ? '♥' : '♡'}</Text>
+            <HeartIcon filled={fav} />
           </TouchableOpacity>
         </View>
 
@@ -130,19 +192,19 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
 
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
-              <Text style={{ color: '#ff5900', fontSize: 8 }}>📅</Text>
+              <CalIcon />
               <Text style={styles.metaLabel}>RELEASED</Text>
               <Text style={styles.metaValue}>{year}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaCol}>
-              <Text style={{ color: '#ff5900', fontSize: 8 }}>▶</Text>
+              <EpisodesIcon />
               <Text style={styles.metaLabel}>EPISODES</Text>
               <Text style={styles.metaValue}>{episodes}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaCol}>
-              <Text style={{ color: '#ff5900', fontSize: 8 }}>🏷</Text>
+              <GenreIcon />
               <Text style={styles.metaLabel}>GENRE</Text>
               <Text style={styles.metaValue} numberOfLines={1}>{genre}</Text>
             </View>
@@ -150,11 +212,11 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false }) 
 
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.actionBtn} onPress={handleToggleWatchlist} activeOpacity={0.75}>
-              <Text style={{ fontSize: 10, color: wl ? '#ff5900' : 'rgba(255,255,255,0.7)' }}>{wl ? '◈' : '◇'}</Text>
+              <WatchlistIcon active={wl} />
               <Text style={[styles.actionLabel, wl && styles.actionActive]}>WATCHLIST</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={handleShare} activeOpacity={0.75}>
-              <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>↗</Text>
+              <ShareIcon />
               <Text style={styles.actionLabel}>SHARE</Text>
             </TouchableOpacity>
           </View>

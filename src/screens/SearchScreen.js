@@ -594,7 +594,8 @@ const SearchScreen = ({ navigation }) => {
           initialNumToRender={6}
           maxToRenderPerBatch={8}
           windowSize={3}
-          removeClippedSubviews={true}
+          removeClippedSubviews={false}
+          overScrollMode="never"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           onScroll={Animated.event(

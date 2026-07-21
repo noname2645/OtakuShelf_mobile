@@ -613,15 +613,15 @@ const ListScreen = () => {
   }, [sortedGroups]);
 
   // ── Render ──
-  const renderSectionHeader = ({ section: { title } }) => (
+  const renderSectionHeader = useCallback(({ section: { title } }) => (
     <View style={s.monthHeader}>
       <View style={s.monthLine} />
       <Text style={s.monthTitle}>{title}</Text>
       <View style={s.monthLine} />
     </View>
-  );
+  ), []);
 
-  const renderItem = ({ item: row }) => (
+  const renderItem = useCallback(({ item: row }) => (
     <View style={s.cardsRow}>
       {row.map(a => (
         <PremiumAnimeCard
@@ -640,7 +640,7 @@ const ListScreen = () => {
       ))}
       {row.length === 1 && <View style={{ width: CARD_W }} />}
     </View>
-  );
+  ), [activeTab, handleIncrement, handleDecrement, handleRating, handleRemove, handleStatusChange, handleCardPress, handleFavoriteToggle]);
 
   const currentList = animeList[activeTab] || [];
   const showImporting = importing || !!importProgress;
@@ -727,10 +727,10 @@ const ListScreen = () => {
               </TouchableOpacity>
             </View>
           }
-          initialNumToRender={6}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
+          initialNumToRender={12}
+          maxToRenderPerBatch={20}
+          windowSize={21}
+          removeClippedSubviews={false}
         />
       )}
 
