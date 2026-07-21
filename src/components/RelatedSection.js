@@ -230,6 +230,8 @@ const RelatedSection = ({ animeId, animeMalId, onSelect }) => {
     return Object.entries(g).sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b));
   }, [related]);
 
+
+
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -251,42 +253,32 @@ const RelatedSection = ({ animeId, animeMalId, onSelect }) => {
     );
   }
 
-  const allItems = useMemo(() => {
-    const items = [];
-    grouped.forEach(([relationType, animeList], gi) => {
-      if (gi > 0) items.push({ isDivider: true, label: formatRelationType(relationType) });
-      animeList.forEach(a => items.push({ isDivider: false, ...a }));
-    });
-    return items;
-  }, [grouped]);
-
   return (
     <View style={styles.container}>
-      <Text style={styles.groupTitle}>Sequels &amp; Prequels</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recsScroll}>
-        {allItems.map((item, idx) => {
-          if (item.isDivider) {
-            return (
-              <View key={`div-${idx}`} style={styles.divider}>
-                <Text style={styles.dividerText}>{item.label}</Text>
-              </View>
-            );
-          }
-          return (
-            <View key={item.id || idx} style={styles.recCard}>
-              <AnimeCardPremium
-                anime={item}
-                index={idx}
-                onPress={(sel) => onSelect && onSelect({
-                  ...sel,
-                  startDate: sel.startDate,
-                  endDate: sel.endDate,
-                })}
-                isGrid
-              />
+        {grouped.map(([relationType, animeList], gi) => (
+          <View key={relationType} style={styles.groupCol}>
+            {animeList.length > 0 && (
+              <Text style={styles.groupLabel}>{formatRelationType(relationType)}</Text>
+            )}
+            <View style={styles.groupCards}>
+              {animeList.map((animeItem, idx) => (
+                <View key={animeItem.id || `${relationType}-${idx}`} style={styles.recCard}>
+                  <AnimeCardPremium
+                    anime={animeItem}
+                    index={idx}
+                    onPress={(sel) => onSelect && onSelect({
+                      ...sel,
+                      startDate: sel.startDate,
+                      endDate: sel.endDate,
+                    })}
+                    isGrid
+                  />
+                </View>
+              ))}
             </View>
-          );
-        })}
+          </View>
+        ))}
       </ScrollView>
     </View>
   );
@@ -313,19 +305,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginRight: 12,
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginRight: 12,
-    paddingHorizontal: 4,
+  groupCol: {
+    marginRight: 14,
   },
-  dividerText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+  groupLabel: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+    paddingLeft: 2,
+  },
+  groupCards: {
+    flexDirection: 'row',
+    gap: 14,
   },
 
   loading: {
