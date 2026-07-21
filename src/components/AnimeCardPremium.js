@@ -129,7 +129,7 @@ const AnimeCardPremium = React.memo(({ anime, onPress, index, isGrid = false, is
   const format = anime.format || 'TV';
 
   const cardW = isGrid ? undefined : isBanner ? undefined : CARD_WIDTH;
-  const cardH = isGrid ? CARD_WIDTH * 1.52 : isBanner ? 200 : CARD_HEIGHT;
+  const cardH = isGrid ? CARD_WIDTH * 1.52 : isBanner ? 260 : CARD_HEIGHT;
   const fav = loaded && anime?.id ? isFavorite(String(anime.id)) : false;
   const wl = loaded && anime?.id ? isWatchlisted(String(anime.id)) : false;
 

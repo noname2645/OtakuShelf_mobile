@@ -688,12 +688,12 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0f1e' },
+  container: { flex: 1, backgroundColor: '#030712' },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
     height: 170, zIndex: 200,
   },
-  loadingContainer: { flex: 1, backgroundColor: '#0a0f1e', justifyContent: 'center', alignItems: 'center' },
+  loadingContainer: { flex: 1, backgroundColor: '#030712', justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#ff6b6b', marginTop: 10, fontSize: 16 },
   content: { flex: 1 },
   coverContainer: { height: 300, width: '100%', position: 'relative' }, // Fixed 300
