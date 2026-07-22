@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
+import AppFooter from '../components/AppFooter';
 import { usePreferences } from '../contexts/PreferenceContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Svg, G, Path, Circle, Text as SvgText } from 'react-native-svg';
@@ -711,10 +712,7 @@ const ProfileScreen = ({ navigation }) => {
               ))}
             </View>
           </View>
-          <View style={styles.versionFooter}>
-            <Text style={styles.versionText}>OtakuShelf v{APP_VERSION}</Text>
-            <Text style={styles.buildText}>Build {BUILD_DATE} • Stable</Text>
-          </View>
+          <AppFooter />
           <View style={{ height: 130 }} />
         </View>
       </ScrollView>

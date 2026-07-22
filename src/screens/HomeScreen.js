@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AppFooter from '../components/AppFooter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
@@ -665,25 +666,7 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         {/* ── Footer ── */}
-        <View style={styles.footer}>
-          <View style={styles.footerDivider} />
-          <MaskedView
-            style={{ height: 28, alignSelf: 'center', marginBottom: 6 }}
-            maskElement={<Text style={styles.footerLogoMask}>OtakuShelf</Text>}
-          >
-            <LinearGradient
-              colors={['#ff6a00', '#ffcc00', '#ff0066']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ flex: 1, width: 130 }}
-            />
-          </MaskedView>
-          <Text style={styles.footerTagline}>
-            Your ultimate anime companion. Track, discover, obsess.
-          </Text>
-          <Text style={styles.footerCopy}>© 2026 OtakuShelf. All rights reserved.</Text>
-          <Text style={styles.footerHeart}>Made with ♥ for anime fans</Text>
-        </View>
+        <AppFooter />
 
         <View style={{ height: 120 }} />
       </Animated.ScrollView>
@@ -936,24 +919,6 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24, paddingTop: 32, paddingBottom: 20,
     alignItems: 'center', gap: 6,
-    borderTopWidth: 1, borderColor: 'rgba(255, 154, 0, 0.12)',
-  },
-  footerDivider: { height: 1, width: '80%', backgroundColor: 'rgba(255,154,0,0.12)', marginBottom: 16 },
-  footerLogoMask: {
-    fontSize: 18, fontFamily: 'OutfitRegular', fontWeight: '800',
-    color: '#fff', letterSpacing: 0.5,
-  },
-  footerTagline: {
-    color: 'rgba(255,255,255,0.35)', fontSize: 12,
-    textAlign: 'center', lineHeight: 18,
-  },
-  footerCopy: {
-    color: 'rgba(255,255,255,0.25)', fontSize: 11,
-    marginTop: 8, textAlign: 'center',
-  },
-  footerHeart: {
-    color: 'rgba(255,154,0,0.5)', fontSize: 11,
-    textAlign: 'center',
   },
 });
 

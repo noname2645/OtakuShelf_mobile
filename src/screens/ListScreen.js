@@ -22,6 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { useNavigation } from '@react-navigation/native';
 import BottomNav from '../components/BottomNav';
+import AppFooter from '../components/AppFooter';
 import AnimeModal from '../components/AnimeModal';
 import StarRating from '../components/StarRating';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -734,6 +735,8 @@ const ListScreen = () => {
             </View>
           }
           initialNumToRender={12}
+          ListFooterComponent={<AppFooter />}
+          ListFooterComponentStyle={{ paddingBottom: 90 }}
           maxToRenderPerBatch={20}
           windowSize={11}
           removeClippedSubviews={true}

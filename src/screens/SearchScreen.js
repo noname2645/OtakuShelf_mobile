@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import AnimeModal from '../components/AnimeModal';
 import BottomNav from '../components/BottomNav';
+import AppFooter from '../components/AppFooter';
 import AnimeCardPremium from '../components/AnimeCardPremium';
 
 
@@ -621,6 +622,8 @@ const SearchScreen = ({ navigation }) => {
               )}
             </View>
           }
+          ListFooterComponent={<AppFooter />}
+          ListFooterComponentStyle={{ paddingBottom: 90 }}
           columnWrapperStyle={COLUMN_WRAPPER}
         />
       )}

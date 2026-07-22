@@ -596,7 +596,7 @@ const AIScreen = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      <BottomNav navigation={navigation} activeRoute="AI" />
+            <BottomNav navigation={navigation} activeRoute="AI" />
 
       {/* Anime Modal */}
       <AnimeModal

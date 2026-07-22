@@ -26,6 +26,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import BottomNav from '../components/BottomNav';
 import { APP_VERSION, BUILD_DATE } from '../config/api';
+import AppFooter from '../components/AppFooter';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +44,8 @@ export default function SettingsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('security');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [mfaSaving, setMfaSaving] = useState(false);
   const { showNotification } = useNotification();
 
   // Settings state
@@ -160,7 +163,7 @@ export default function SettingsScreen({ navigation }) {
     if (passwordForm.newPassword.length < 6) {
       return showNotification('error', 'Password must be at least 6 characters');
     }
-    setSaving(true);
+    setPasswordSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
       await axios.put(`${API}/auth/change-password`, {
@@ -174,13 +177,13 @@ export default function SettingsScreen({ navigation }) {
     } catch (err) {
       showNotification('error', err.response?.data?.message || 'Failed to change password');
     } finally {
-      setSaving(false);
+      setPasswordSaving(false);
     }
   };
 
   // MFA Handlers
   const handleSetupMfa = async () => {
-    setSaving(true);
+    setMfaSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await axios.get(`${API}/api/mfa/setup/${userId}`, {
@@ -190,12 +193,12 @@ export default function SettingsScreen({ navigation }) {
     } catch (err) {
       showNotification('error', 'Failed to initialize MFA setup');
     } finally {
-      setSaving(false);
+      setMfaSaving(false);
     }
   };
 
   const handleVerifyMfa = async () => {
-    setSaving(true);
+    setMfaSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
       await axios.post(`${API}/api/mfa/verify/${userId}`, { token: mfaTokenInput }, {
@@ -208,7 +211,7 @@ export default function SettingsScreen({ navigation }) {
     } catch (err) {
       showNotification('error', err.response?.data?.message || 'Invalid 2FA code');
     } finally {
-      setSaving(false);
+      setMfaSaving(false);
     }
   };
 
@@ -234,7 +237,7 @@ export default function SettingsScreen({ navigation }) {
 
   const handleDisableMfa = async () => {
     if (!securityOtpInput) return showNotification('error', 'Verification code required');
-    setSaving(true);
+    setMfaSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
       await axios.post(`${API}/api/mfa/disable/${userId}`, { otp: securityOtpInput }, {
@@ -249,7 +252,7 @@ export default function SettingsScreen({ navigation }) {
     } catch (err) {
       showNotification('error', err.response?.data?.message || 'Failed to disable 2FA');
     } finally {
-      setSaving(false);
+      setMfaSaving(false);
     }
   };
 
@@ -408,8 +411,8 @@ export default function SettingsScreen({ navigation }) {
               secureTextEntry
             />
 
-            <PressScale style={styles.btnPrimary} onPress={handleChangePassword} disabled={saving}>
-              <View style={styles.btnIconRow}><Ionicons name="lock-closed-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Changing...' : 'Update Password'}</Text></View>
+            <PressScale style={styles.btnPrimary} onPress={handleChangePassword} disabled={passwordSaving}>
+              <View style={styles.btnIconRow}><Ionicons name="lock-closed-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{passwordSaving ? 'Changing...' : 'Update Password'}</Text></View>
             </PressScale>
           </View>
         )}
@@ -445,8 +448,8 @@ export default function SettingsScreen({ navigation }) {
             ) : (
               <View>
                 {!mfaSetup ? (
-                  <PressScale style={styles.btnPrimary} onPress={handleSetupMfa} disabled={saving}>
-                    <View style={styles.btnIconRow}><Ionicons name="shield-checkmark-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Setting up...' : 'Setup Authenticator App'}</Text></View>
+                  <PressScale style={styles.btnPrimary} onPress={handleSetupMfa} disabled={mfaSaving}>
+                    <View style={styles.btnIconRow}><Ionicons name="shield-checkmark-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{mfaSaving ? 'Setting up...' : 'Setup Authenticator App'}</Text></View>
                   </PressScale>
                 ) : (
                   <View style={styles.mfaSetupFlow}>
@@ -478,7 +481,7 @@ export default function SettingsScreen({ navigation }) {
                     />
 
                     <View style={styles.modalActionRow}>
-                      <PressScale style={[styles.btnPrimary, { flex: 2 }]} onPress={handleVerifyMfa} disabled={saving || mfaTokenInput.length !== 6}>
+                      <PressScale style={[styles.btnPrimary, { flex: 2 }]} onPress={handleVerifyMfa} disabled={mfaSaving || mfaTokenInput.length !== 6}>
                         <View style={styles.btnIconRow}><Ionicons name="checkmark-circle-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>Verify & Enable</Text></View>
                       </PressScale>
                       <PressScale style={[styles.btnGhost, { flex: 1 }]} onPress={() => { setMfaSetup(null); setMfaTokenInput(''); }}>
@@ -523,11 +526,11 @@ export default function SettingsScreen({ navigation }) {
         )}
       </View>
 
-      {/* Danger Zone */}
+      {/* Delete Account */}
       <View style={[styles.card, styles.dangerCard]}>
         <View style={styles.cardHeader}>
           <Ionicons name="warning-outline" size={22} color="#ef4444" />
-          <Text style={[styles.cardTitle, { color: '#fca5a5' }]}>Danger Zone</Text>
+          <Text style={[styles.cardTitle, { color: '#fca5a5' }]}>Delete Account</Text>
         </View>
         <Text style={styles.cardDesc}>
           Permanently delete your OtakuShelf account. This will erase all your anime lists, ratings, and details forever.
@@ -582,7 +585,7 @@ export default function SettingsScreen({ navigation }) {
             onPress={() => handleSelect('preferences', 'defaultLayout', 'grid')}
           >
             <View style={styles.layoutBtnInner}>
-              <Ionicons name="apps-outline" size={20} color={settings.preferences.defaultLayout === 'grid' ? '#f59e0b' : '#fff'} />
+              <Ionicons name="apps-outline" size={18} color={settings.preferences.defaultLayout === 'grid' ? '#f59e0b' : '#fff'} />
               <Text style={[styles.layoutBtnText, settings.preferences.defaultLayout === 'grid' && styles.layoutBtnTextActive]}>Grid View</Text>
             </View>
           </PressScale>
@@ -591,7 +594,7 @@ export default function SettingsScreen({ navigation }) {
             onPress={() => handleSelect('preferences', 'defaultLayout', 'list')}
           >
             <View style={styles.layoutBtnInner}>
-              <Ionicons name="list-outline" size={20} color={settings.preferences.defaultLayout === 'list' ? '#f59e0b' : '#fff'} />
+              <Ionicons name="list-outline" size={18} color={settings.preferences.defaultLayout === 'list' ? '#f59e0b' : '#fff'} />
               <Text style={[styles.layoutBtnText, settings.preferences.defaultLayout === 'list' && styles.layoutBtnTextActive]}>List View</Text>
             </View>
           </PressScale>
@@ -764,13 +767,13 @@ export default function SettingsScreen({ navigation }) {
       </Animated.View>
 
       {/* Header */}
-      <LinearGradient colors={['#1e1b4b', '#0f172a']} style={styles.header}>
+      <View style={styles.header}>
         <PressScale style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </PressScale>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 40 }} />
-      </LinearGradient>
+      </View>
 
       {/* Tabs */}
       <View style={styles.tabScrollContainer}>
@@ -788,15 +791,17 @@ export default function SettingsScreen({ navigation }) {
                 style={[styles.tabButton, isActive && styles.tabButtonActive]}
                 onPress={() => setActiveTab(tab.id)}
               >
-                <Ionicons
-                  name={tab.icon}
-                  size={16}
-                  color={isActive ? '#f59e0b' : 'rgba(255,255,255,0.6)'}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
-                  {tab.label}
-                </Text>
+                <View style={styles.tabButtonInner}>
+                  <Ionicons
+                    name={tab.icon}
+                    size={16}
+                    color={isActive ? '#f59e0b' : 'rgba(255,255,255,0.6)'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
+                    {tab.label}
+                  </Text>
+                </View>
               </PressScale>
             );
           })}
@@ -823,10 +828,7 @@ export default function SettingsScreen({ navigation }) {
           ) : (
             <>
               {renderTabContent()}
-              <View style={styles.versionFooter}>
-                <Text style={styles.versionText}>OtakuShelf v{APP_VERSION}</Text>
-                <Text style={styles.buildText}>Build {BUILD_DATE} • Stable</Text>
-              </View>
+              <AppFooter />
             </>
           )}
         </ScrollView>
@@ -883,9 +885,9 @@ export default function SettingsScreen({ navigation }) {
                   <PressScale
                     style={[styles.btnDanger, { flex: 1 }]}
                     onPress={handleDisableMfa}
-                    disabled={saving || securityOtpInput.length !== 6}
+                    disabled={mfaSaving || securityOtpInput.length !== 6}
                   >
-                    <View style={styles.btnIconRow}><Ionicons name="shield-off-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Disabling...' : 'Confirm Disable'}</Text></View>
+                    <View style={styles.btnIconRow}><Ionicons name="shield-off-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{mfaSaving ? 'Disabling...' : 'Confirm Disable'}</Text></View>
                   </PressScale>
                   <PressScale style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setSecurityStep('password')}>
                     <View style={styles.btnIconRow}><Ionicons name="arrow-back-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} /><Text style={styles.btnGhostText}>Back</Text></View>
@@ -971,6 +973,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#030712',
+    paddingTop: 25,
   },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
@@ -983,8 +986,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   backButton: {
     padding: 8,
@@ -996,9 +997,6 @@ const styles = StyleSheet.create({
     fontFamily: 'OutfitRegular',
   },
   tabScrollContainer: {
-    backgroundColor: '#0c0e1c',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   tabBar: {
     paddingVertical: 10,
@@ -1010,12 +1008,8 @@ const styles = StyleSheet.create({
     paddingRight: 24,
   },
   tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
     marginRight: 8,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
@@ -1023,6 +1017,12 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: 'rgba(245,158,11,0.12)',
     borderColor: '#f59e0b',
+  },
+  tabButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   tabButtonText: {
     color: 'rgba(255,255,255,0.6)',
