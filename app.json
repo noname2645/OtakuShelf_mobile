@@ -4,6 +4,7 @@
     "slug": "otakushelf-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "otakushelf",
     "icon": "./assets/otakushelf_app_icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -16,14 +17,20 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.otakushelf.mobile"
+      "bundleIdentifier": "com.otakushelf.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/otakushelf_app_icon.png",
         "backgroundColor": "#0a0f1e"
       },
-      "package": "com.otakushelf.mobile"
+      "package": "com.otakushelf.mobile",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "androidNavigationBar": {
       "backgroundColor": "#0a0f1e",
@@ -33,6 +40,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-web-browser",
       [
         "expo-image-picker",
         {
@@ -40,6 +48,11 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b9230cc0-05d5-4d96-b755-5f8597059ce4"
+      }
+    }
   }
 }

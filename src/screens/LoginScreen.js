@@ -8,7 +8,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
 
 const appIcon = require('../../assets/otakushelf_app_icon.png');
@@ -30,36 +33,7 @@ const useFloatingAnimation = (duration = 3000) => {
   return value;
 };
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ message, type }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateX = useRef(new Animated.Value(60)).current;
 
-  useEffect(() => {
-    if (!message) return;
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
-      Animated.spring(translateX, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
-    ]).start();
-    const t = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-        Animated.timing(translateX, { toValue: 60, duration: 220, useNativeDriver: true }),
-      ]).start();
-    }, 2800);
-    return () => clearTimeout(t);
-  }, [message]);
-
-  if (!message) return null;
-  const isSuccess = type === 'success';
-
-  return (
-    <Animated.View style={[styles.toast, isSuccess ? styles.toastSuccess : styles.toastError, { opacity, transform: [{ translateX }] }]}>
-      <Ionicons name={isSuccess ? 'checkmark-circle' : 'alert-circle'} size={18} color={isSuccess ? '#4ade80' : '#f87171'} />
-      <Text style={[styles.toastText, { color: isSuccess ? '#4ade80' : '#f87171' }]}>{message}</Text>
-    </Animated.View>
-  );
-};
 
 // ─── InputField ───────────────────────────────────────────────────────────────
 const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, autoCapitalize, editable, maxLength, textAlign, fontSize, letterSpacing, entranceDelay = 0 }) => {
@@ -71,8 +45,8 @@ const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, k
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fieldOpacity, { toValue: 1, duration: 450, delay: entranceDelay, useNativeDriver: true }),
-      Animated.timing(fieldY, { toValue: 0, duration: 450, delay: entranceDelay, useNativeDriver: true }),
+      Animated.timing(fieldOpacity, { toValue: 1, duration: 450, delay: entranceDelay, useNativeDriver: false }),
+      Animated.timing(fieldY, { toValue: 0, duration: 450, delay: entranceDelay, useNativeDriver: false }),
     ]).start();
   }, []);
 
@@ -132,8 +106,36 @@ const LoginScreen = ({ navigation }) => {
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [toast, setToast] = useState({ message: '', type: 'error' });
   const { login, API } = useAuth();
+  const { showNotification } = useNotification();
+
+  const redirectUri = makeRedirectUri({ useProxy: true });
+
+  const [googleRequest, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
+    redirectUri,
+  });
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const idToken = googleResponse.params?.id_token;
+      if (!idToken) return;
+      (async () => {
+        try {
+          const res = await axios.post(`${API}/auth/google`, { idToken });
+          const userData = res.data?.user;
+          const token = res.data?.token;
+          if (userData && token) {
+            await login(userData, token);
+            setEmail(''); setPassword(''); setMfaCode('');
+            navigation.replace('Home');
+          }
+        } catch (err) {
+          showNotification('error', err.response?.data?.message || err.message);
+        }
+      })();
+    }
+  }, [googleResponse]);
 
   // Floating animations
   const orb1Y = useFloatingAnimation(2800);
@@ -157,18 +159,13 @@ const LoginScreen = ({ navigation }) => {
     ]).start();
   }, []);
 
-  const showToast = useCallback((message, type = 'error') => {
-    setToast({ message: '', type });
-    setTimeout(() => setToast({ message, type }), 10);
-  }, []);
-
   const handleLogin = async () => {
     if (!requiresMfa && (!email.trim() || !password)) {
-      showToast('Please fill in all fields');
+      showNotification('error', 'Please fill in all fields');
       return;
     }
     if (requiresMfa && (!mfaCode || mfaCode.length !== 6)) {
-      showToast('Enter the 6-digit MFA code');
+      showNotification('error', 'Enter the 6-digit MFA code');
       return;
     }
 
@@ -187,7 +184,7 @@ const LoginScreen = ({ navigation }) => {
           setRequiresMfa(true);
           Animated.timing(mfaOpacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
         });
-        showToast('Check your authenticator app for the code', 'success');
+        showNotification('success', 'Check your authenticator app for the code');
         return;
       }
 
@@ -199,7 +196,7 @@ const LoginScreen = ({ navigation }) => {
         setEmail(''); setPassword(''); setMfaCode('');
         navigation.replace('Home');
       } else {
-        showToast('Invalid response from server');
+        showNotification('error', 'Invalid response from server');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -207,7 +204,7 @@ const LoginScreen = ({ navigation }) => {
       if (err.code === 'ECONNABORTED') msg = 'Connection timeout. Check your internet.';
       else if (err.response) msg = err.response.data?.message || 'Invalid credentials';
       else if (err.request) msg = 'Cannot reach server. Try again later.';
-      showToast(msg);
+      showNotification('error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -221,7 +218,9 @@ const LoginScreen = ({ navigation }) => {
     });
   };
 
-  const handleGoogleLogin = () => navigation.navigate('GoogleAuth');
+  const handleGoogleLogin = () => {
+    googlePromptAsync({ useProxy: true });
+  };
 
   const orb1TranslateY = orb1Y.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const orb2TranslateY = orb2Y.interpolate({ inputRange: [0, 1], outputRange: [0, 25] });
@@ -237,9 +236,6 @@ const LoginScreen = ({ navigation }) => {
         <Animated.View style={[styles.orb, styles.orb2, { transform: [{ translateY: orb2TranslateY }] }]} />
         <Animated.View style={[styles.orb, styles.orb3, { transform: [{ translateY: orb3TranslateY }] }]} />
       </View>
-
-      {/* Toast */}
-      <Toast message={toast.message} type={toast.type} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -520,20 +516,6 @@ const styles = StyleSheet.create({
   footerText: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 14 },
   footerLink: { color: '#c084fc', fontWeight: '700' },
 
-  // Toast
-  toast: {
-    position: 'absolute', top: 55, right: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderRadius: 14, borderWidth: 1,
-    minWidth: 220, maxWidth: width - 32,
-    zIndex: 9999,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35, shadowRadius: 24, elevation: 14,
-  },
-  toastSuccess: { backgroundColor: 'rgba(22,163,74,0.18)', borderColor: 'rgba(74,222,128,0.25)' },
-  toastError: { backgroundColor: 'rgba(220,38,38,0.18)', borderColor: 'rgba(248,113,113,0.25)' },
-  toastText: { fontSize: 13, fontWeight: '600', flex: 1 },
 });
 
 export default LoginScreen;

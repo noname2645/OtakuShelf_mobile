@@ -18,10 +18,9 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
-import axios from 'axios';
-import Svg, { Path, Line, Circle, Rect, Polyline } from 'react-native-svg';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
+import { useNavigation } from '@react-navigation/native';
 import BottomNav from '../components/BottomNav';
 import AnimeModal from '../components/AnimeModal';
 import StarRating from '../components/StarRating';
@@ -270,7 +269,13 @@ const PremiumAnimeCard = React.memo(({
 // ─── List Screen ──────────────────────────────────────────────────────
 
 const ListScreen = () => {
-  const { user, API } = useAuth();
+  const { user, loading: authLoading, API } = useAuth();
+  const { showNotification } = useNotification();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    if (!authLoading && !user) navigation.replace('Login');
+  }, [authLoading, user]);
 
   const [activeTab, setActiveTab] = useState('watching');
   const [animeList, setAnimeList] = useState({
@@ -496,7 +501,7 @@ const ListScreen = () => {
               });
               return next;
             });
-          } catch { Alert.alert('Error', 'Failed to remove.'); }
+          } catch { showNotification('error', 'Failed to remove.'); }
         }
       }
     ]);
@@ -532,7 +537,7 @@ const ListScreen = () => {
       if (result.canceled) return;
       setSelectedFile(result.assets ? result.assets[0] : result);
       setShowImportModal(true);
-    } catch { Alert.alert('Error', 'Failed to pick file'); }
+    } catch { showNotification('error', 'Failed to pick file'); }
   };
 
   const handleImportConfirm = async () => {
@@ -550,10 +555,10 @@ const ListScreen = () => {
       const res = await axios.post(`${API}/api/list/import/mal`, fd, {
         headers: { 'Content-Type': 'multipart/form-data', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
-      if (res.data.success) { Alert.alert('Success', res.data.message); fetchAnimeList(); }
-      else Alert.alert('Error', res.data.message);
+      if (res.data.success) { showNotification('success', res.data.message); fetchAnimeList(); }
+      else showNotification('error', res.data.message);
     } catch {
-      Alert.alert('Import Failed', 'Check your file or connection.');
+      showNotification('error', 'Check your file or connection.');
     } finally { setImporting(false); setImportProgress(''); setSelectedFile(null); }
   };
 
@@ -588,12 +593,12 @@ const ListScreen = () => {
       await axios.post(`${API}/api/list/${uid}`, payload, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      Alert.alert('Added', `${payload.title} added to your list.`);
+      showNotification('success', `${payload.title} added to your list.`);
       setAddQuery('');
       setAddResults([]);
       setShowAddModal(false);
       fetchAnimeList();
-    } catch { Alert.alert('Error', 'Failed to add anime.'); }
+    } catch { showNotification('error', 'Failed to add anime.'); }
   };
 
   // ── Grouping ──

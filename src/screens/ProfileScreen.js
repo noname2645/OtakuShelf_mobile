@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Dimensions,
   Share,
   Platform,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import BottomNav from '../components/BottomNav';
 import { usePreferences } from '../contexts/PreferenceContext';
@@ -260,7 +260,12 @@ const PieChart = ({ data }) => {
 
 
 const ProfileScreen = ({ navigation }) => {
-  const { user, updateProfile, API, logout, checkAuthStatus } = useAuth();
+  const { user, loading: authLoading, updateProfile, API, logout, checkAuthStatus } = useAuth();
+  const { showNotification } = useNotification();
+
+  useEffect(() => {
+    if (!authLoading && !user) navigation.replace('Login');
+  }, [authLoading, user]);
 
   // State
   const [profileData, setProfileData] = useState(null);
@@ -483,7 +488,7 @@ const ProfileScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      Alert.alert("Error", "Failed to load profile data");
+      showNotification('error', "Failed to load profile data");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -511,10 +516,10 @@ const ProfileScreen = ({ navigation }) => {
         const resData = response.data?.data || response.data;
         if (resData?.coverImage || resData?.profile?.coverImage) { 
           loadProfileData(); 
-          Alert.alert("Success", "Cover image updated!"); 
+          showNotification('success', "Cover image updated!"); 
         }
       }
-    } catch (e) { Alert.alert("Error", "Failed to upload cover"); }
+    } catch (e) { showNotification('error', "Failed to upload cover"); }
   };
 
   const handleImageUpload = async () => {
@@ -539,10 +544,10 @@ const ProfileScreen = ({ navigation }) => {
           await checkAuthStatus();
           // Reload local profile data (though useEffect on user change might handle this)
           loadProfileData();
-          Alert.alert("Success", "Profile photo updated!");
+          showNotification('success', "Profile photo updated!");
         }
       }
-    } catch (e) { Alert.alert("Error", "Failed to upload photo"); }
+    } catch (e) { showNotification('error', "Failed to upload photo"); }
   };
 
   const handleSaveProfile = async () => {
@@ -550,8 +555,8 @@ const ProfileScreen = ({ navigation }) => {
       await updateProfile({ name: editForm.name, profile: { bio: editForm.bio, username: editForm.username } });
       setProfileData(prev => ({ ...prev, name: editForm.name, bio: editForm.bio, username: editForm.username }));
       setIsEditing(false);
-      Alert.alert("Success", "Profile updated!");
-    } catch (e) { Alert.alert("Error", "Failed to update profile"); }
+      showNotification('success', "Profile updated!");
+    } catch (e) { showNotification('error', "Failed to update profile"); }
   };
 
   const handleShareProfile = async () => { try { await Share.share({ message: `Check out ${profileData?.name}'s anime profile!` }); } catch (e) { } };

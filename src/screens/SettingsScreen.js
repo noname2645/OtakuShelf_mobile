@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Animated,
-  TouchableOpacity,
   TextInput,
   Switch,
   Alert,
@@ -13,14 +12,18 @@ import {
   Dimensions,
   Platform,
   Share,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  TouchableOpacity,
 } from 'react-native';
+import PressScale from '../components/PressScale';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import BottomNav from '../components/BottomNav';
 import { APP_VERSION, BUILD_DATE } from '../config/api';
 
@@ -34,24 +37,13 @@ const TABS = [
   { id: 'notifications', label: 'Notifications', icon: 'notifications-outline' },
 ];
 
-const ACCENT_COLORS = [
-  { name: 'Coral Red', value: '#ff6b6b' },
-  { name: 'Neon Pink', value: '#ec4899' },
-  { name: 'Void Purple', value: '#8b5cf6' },
-  { name: 'Ocean Blue', value: '#3b82f6' },
-  { name: 'Mint Teal', value: '#4ecdc4' },
-  { name: 'Cyber Yellow', value: '#fbbf24' },
-  { name: 'Sunset Orange', value: '#f97316' },
-  { name: 'Emerald', value: '#10b981' },
-];
-
 export default function SettingsScreen({ navigation }) {
   const { user, logout, refreshProfile, API } = useAuth();
 
   const [activeTab, setActiveTab] = useState('security');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const { showNotification } = useNotification();
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -60,7 +52,7 @@ export default function SettingsScreen({ navigation }) {
       defaultLayout: 'grid',
       nsfwContent: false,
       autoplayTrailers: true,
-      accentColor: '#ff6b6b',
+      accentColor: '#f59e0b',
     },
     notifications: {
       episodeAlerts: true,
@@ -94,12 +86,6 @@ export default function SettingsScreen({ navigation }) {
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-
-  // Show toast
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   // Load settings
   useEffect(() => {
@@ -138,10 +124,10 @@ export default function SettingsScreen({ navigation }) {
       await axios.put(`${API}/api/settings/${userId}`, { [category]: data }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('Settings saved!');
+      showNotification('success', 'Settings saved!');
       refreshProfile(); // update context globally
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to save settings', 'error');
+      showNotification('error', err.response?.data?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -169,10 +155,10 @@ export default function SettingsScreen({ navigation }) {
   // Change password
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      return showToast('New passwords do not match', 'error');
+      return showNotification('error', 'New passwords do not match');
     }
     if (passwordForm.newPassword.length < 6) {
-      return showToast('Password must be at least 6 characters', 'error');
+      return showNotification('error', 'Password must be at least 6 characters');
     }
     setSaving(true);
     try {
@@ -183,10 +169,10 @@ export default function SettingsScreen({ navigation }) {
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('Password changed successfully!');
+      showNotification('success', 'Password changed successfully!');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to change password', 'error');
+      showNotification('error', err.response?.data?.message || 'Failed to change password');
     } finally {
       setSaving(false);
     }
@@ -202,7 +188,7 @@ export default function SettingsScreen({ navigation }) {
       });
       setMfaSetup(response.data.data);
     } catch (err) {
-      showToast('Failed to initialize MFA setup', 'error');
+      showNotification('error', 'Failed to initialize MFA setup');
     } finally {
       setSaving(false);
     }
@@ -215,19 +201,19 @@ export default function SettingsScreen({ navigation }) {
       await axios.post(`${API}/api/mfa/verify/${userId}`, { token: mfaTokenInput }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('2FA successfully enabled!');
+      showNotification('success', '2FA successfully enabled!');
       refreshProfile();
       setMfaSetup(null);
       setMfaTokenInput('');
     } catch (err) {
-      showToast(err.response?.data?.message || 'Invalid 2FA code', 'error');
+      showNotification('error', err.response?.data?.message || 'Invalid 2FA code');
     } finally {
       setSaving(false);
     }
   };
 
   const handleRequestDisableOtp = async () => {
-    if (!mfaPasswordInput && user?.authType === 'local') return showToast('Password required', 'error');
+    if (!mfaPasswordInput && user?.authType === 'local') return showNotification('error', 'Password required');
     setActionLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -237,31 +223,31 @@ export default function SettingsScreen({ navigation }) {
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('Verification code sent to your email');
+      showNotification('success', 'Verification code sent to your email');
       setSecurityStep('otp');
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to send verification code', 'error');
+      showNotification('error', err.response?.data?.message || 'Failed to send verification code');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDisableMfa = async () => {
-    if (!securityOtpInput) return showToast('Verification code required', 'error');
+    if (!securityOtpInput) return showNotification('error', 'Verification code required');
     setSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
       await axios.post(`${API}/api/mfa/disable/${userId}`, { otp: securityOtpInput }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('2FA has been disabled');
+      showNotification('success', '2FA has been disabled');
       refreshProfile();
       setShowMfaDisableModal(false);
       setMfaPasswordInput('');
       setSecurityOtpInput('');
       setSecurityStep('password');
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to disable 2FA', 'error');
+      showNotification('error', err.response?.data?.message || 'Failed to disable 2FA');
     } finally {
       setSaving(false);
     }
@@ -269,7 +255,7 @@ export default function SettingsScreen({ navigation }) {
 
   // Delete account
   const handleRequestDeleteOtp = async () => {
-    if (!deleteConfirm && user?.authType === 'local') return showToast('Password required', 'error');
+    if (!deleteConfirm && user?.authType === 'local') return showNotification('error', 'Password required');
     setActionLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -279,17 +265,17 @@ export default function SettingsScreen({ navigation }) {
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('Verification code sent to your email');
+      showNotification('success', 'Verification code sent to your email');
       setSecurityStep('otp');
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to send verification code', 'error');
+      showNotification('error', err.response?.data?.message || 'Failed to send verification code');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (!securityOtpInput) return showToast('Verification code required', 'error');
+    if (!securityOtpInput) return showNotification('error', 'Verification code required');
     setSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -300,10 +286,10 @@ export default function SettingsScreen({ navigation }) {
           password: deleteConfirm
         }
       });
-      showToast('Account deleted. Goodbye...');
+      showNotification('success', 'Account deleted. Goodbye...');
       setTimeout(() => logout(), 1500);
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to delete account', 'error');
+      showNotification('error', err.response?.data?.message || 'Failed to delete account');
     } finally {
       setSaving(false);
     }
@@ -329,10 +315,10 @@ export default function SettingsScreen({ navigation }) {
       await axios.delete(`${API}/api/settings/${userId}/sessions`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      showToast('All other sessions terminated');
+      showNotification('success', 'All other sessions terminated');
       loadSessions();
     } catch (err) {
-      showToast('Failed to terminate sessions', 'error');
+      showNotification('error', 'Failed to terminate sessions');
     }
   };
 
@@ -347,9 +333,9 @@ export default function SettingsScreen({ navigation }) {
         message: JSON.stringify(response.data, null, 2),
         title: 'OtakuShelf Backup Export',
       });
-      showToast('Data exported successfully!');
+      showNotification('success', 'Data exported successfully!');
     } catch (err) {
-      showToast('Failed to export data', 'error');
+      showNotification('error', 'Failed to export data');
     }
   };
 
@@ -366,9 +352,9 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.notLoggedInContainer}>
           <Text style={styles.nliIcon}>🔐</Text>
           <Text style={styles.nliTitle}>Please log in to access settings</Text>
-          <TouchableOpacity style={styles.loginBtn} onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginBtnText}>Go to Login</Text>
-          </TouchableOpacity>
+          <PressScale style={styles.loginBtn} onPress={() => navigation.navigate('Login')}>
+            <View style={styles.btnIconRow}><Ionicons name="log-in-outline" size={18} color="#111" style={{ marginRight: 8 }} /><Text style={styles.loginBtnText}>Go to Login</Text></View>
+          </PressScale>
         </View>
         <BottomNav navigation={navigation} activeRoute="Profile" />
       </View>
@@ -422,9 +408,9 @@ export default function SettingsScreen({ navigation }) {
               secureTextEntry
             />
 
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleChangePassword} disabled={saving}>
-              <Text style={styles.btnText}>{saving ? 'Changing...' : 'Update Password'}</Text>
-            </TouchableOpacity>
+            <PressScale style={styles.btnPrimary} onPress={handleChangePassword} disabled={saving}>
+              <View style={styles.btnIconRow}><Ionicons name="lock-closed-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Changing...' : 'Update Password'}</Text></View>
+            </PressScale>
           </View>
         )}
       </View>
@@ -452,16 +438,16 @@ export default function SettingsScreen({ navigation }) {
               <View style={styles.mfaStatusBox}>
                 <Text style={styles.mfaEnabledBadge}>✓ 2FA is Currently Enabled</Text>
                 <Text style={styles.mfaDesc}>Your account is protected. You will be asked for a code on login.</Text>
-                <TouchableOpacity style={styles.btnDangerOutline} onPress={() => setShowMfaDisableModal(true)}>
-                  <Text style={styles.btnDangerText}>Disable 2FA</Text>
-                </TouchableOpacity>
+                <PressScale style={styles.btnDangerOutline} onPress={() => setShowMfaDisableModal(true)}>
+                  <View style={styles.btnIconRow}><Ionicons name="shield-off-outline" size={16} color="#fca5a5" style={{ marginRight: 8 }} /><Text style={styles.btnDangerText}>Disable 2FA</Text></View>
+                </PressScale>
               </View>
             ) : (
               <View>
                 {!mfaSetup ? (
-                  <TouchableOpacity style={styles.btnPrimary} onPress={handleSetupMfa} disabled={saving}>
-                    <Text style={styles.btnText}>{saving ? 'Setting up...' : 'Setup Authenticator App'}</Text>
-                  </TouchableOpacity>
+                  <PressScale style={styles.btnPrimary} onPress={handleSetupMfa} disabled={saving}>
+                    <View style={styles.btnIconRow}><Ionicons name="shield-checkmark-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Setting up...' : 'Setup Authenticator App'}</Text></View>
+                  </PressScale>
                 ) : (
                   <View style={styles.mfaSetupFlow}>
                     <Text style={styles.setupStep}>1. Scan or enter key in your Authenticator app:</Text>
@@ -473,7 +459,12 @@ export default function SettingsScreen({ navigation }) {
                     ) : null}
 
                     <Text style={styles.label}>Manual Setup Key:</Text>
-                    <Text selectTextOnFocus style={styles.keyBox}>{mfaSetup.secret}</Text>
+                    <View style={styles.keyRow}>
+                      <Text selectTextOnFocus style={styles.keyBox}>{mfaSetup.secret}</Text>
+                      <PressScale style={styles.copyBtn} onPress={() => { Clipboard.setStringAsync(mfaSetup.secret); showNotification('success', 'Key copied!'); }}>
+                        <Ionicons name="copy-outline" size={16} color="#f59e0b" />
+                      </PressScale>
+                    </View>
 
                     <Text style={styles.setupStep}>2. Enter the 6-digit code to enable:</Text>
                     <TextInput
@@ -487,12 +478,12 @@ export default function SettingsScreen({ navigation }) {
                     />
 
                     <View style={styles.modalActionRow}>
-                      <TouchableOpacity style={[styles.btnPrimary, { flex: 1 }]} onPress={handleVerifyMfa} disabled={saving || mfaTokenInput.length !== 6}>
-                        <Text style={styles.btnText}>Verify & Enable</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => { setMfaSetup(null); setMfaTokenInput(''); }}>
-                        <Text style={styles.btnGhostText}>Cancel</Text>
-                      </TouchableOpacity>
+                      <PressScale style={[styles.btnPrimary, { flex: 2 }]} onPress={handleVerifyMfa} disabled={saving || mfaTokenInput.length !== 6}>
+                        <View style={styles.btnIconRow}><Ionicons name="checkmark-circle-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>Verify & Enable</Text></View>
+                      </PressScale>
+                      <PressScale style={[styles.btnGhost, { flex: 1 }]} onPress={() => { setMfaSetup(null); setMfaTokenInput(''); }}>
+                        <View style={styles.btnIconRow}><Ionicons name="close-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} /><Text style={styles.btnGhostText}>Cancel</Text></View>
+                      </PressScale>
                     </View>
                   </View>
                 )}
@@ -526,9 +517,9 @@ export default function SettingsScreen({ navigation }) {
         ))}
 
         {sessions.length > 1 && (
-          <TouchableOpacity style={styles.btnDangerOutline} onPress={handleLogoutAll}>
-            <Text style={styles.btnDangerText}>🚪 Log Out All Other Devices</Text>
-          </TouchableOpacity>
+          <PressScale style={styles.btnDangerOutline} onPress={handleLogoutAll}>
+            <View style={styles.btnIconRow}><Ionicons name="log-out-outline" size={16} color="#fca5a5" style={{ marginRight: 8 }} /><Text style={styles.btnDangerText}>Log Out All Other Devices</Text></View>
+          </PressScale>
         )}
       </View>
 
@@ -541,9 +532,9 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.cardDesc}>
           Permanently delete your OtakuShelf account. This will erase all your anime lists, ratings, and details forever.
         </Text>
-        <TouchableOpacity style={styles.btnDanger} onPress={() => setShowDeleteModal(true)}>
-          <Text style={styles.btnText}>🗑️ Delete My Account</Text>
-        </TouchableOpacity>
+        <PressScale style={styles.btnDanger} onPress={() => setShowDeleteModal(true)}>
+          <View style={styles.btnIconRow}><Ionicons name="trash-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>Delete My Account</Text></View>
+        </PressScale>
       </View>
     </View>
   );
@@ -565,14 +556,14 @@ export default function SettingsScreen({ navigation }) {
           ].map(opt => {
             const isActive = settings.preferences.titleLanguage === opt.value;
             return (
-              <TouchableOpacity
+              <PressScale
                 key={opt.value}
                 style={[styles.pill, isActive && styles.pillActive]}
                 onPress={() => handleSelect('preferences', 'titleLanguage', opt.value)}
               >
                 <Text style={[styles.pillText, isActive && styles.pillTextActive]}>{opt.label}</Text>
                 <Text style={[styles.pillSubtext, isActive && styles.pillSubtextActive]} numberOfLines={1}>{opt.example}</Text>
-              </TouchableOpacity>
+              </PressScale>
             );
           })}
         </View>
@@ -586,77 +577,28 @@ export default function SettingsScreen({ navigation }) {
         </View>
         <Text style={styles.cardDesc}>Select list viewing layout preferences.</Text>
         <View style={styles.layoutBtnRow}>
-          <TouchableOpacity
+          <PressScale
             style={[styles.layoutBtn, settings.preferences.defaultLayout === 'grid' && styles.layoutBtnActive]}
             onPress={() => handleSelect('preferences', 'defaultLayout', 'grid')}
           >
-            <Ionicons name="apps-outline" size={24} color={settings.preferences.defaultLayout === 'grid' ? '#ff6b6b' : '#fff'} />
-            <Text style={[styles.layoutBtnText, settings.preferences.defaultLayout === 'grid' && styles.layoutBtnTextActive]}>Grid View</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            <View style={styles.layoutBtnInner}>
+              <Ionicons name="apps-outline" size={20} color={settings.preferences.defaultLayout === 'grid' ? '#f59e0b' : '#fff'} />
+              <Text style={[styles.layoutBtnText, settings.preferences.defaultLayout === 'grid' && styles.layoutBtnTextActive]}>Grid View</Text>
+            </View>
+          </PressScale>
+          <PressScale
             style={[styles.layoutBtn, settings.preferences.defaultLayout === 'list' && styles.layoutBtnActive]}
             onPress={() => handleSelect('preferences', 'defaultLayout', 'list')}
           >
-            <Ionicons name="list-outline" size={24} color={settings.preferences.defaultLayout === 'list' ? '#ff6b6b' : '#fff'} />
-            <Text style={[styles.layoutBtnText, settings.preferences.defaultLayout === 'list' && styles.layoutBtnTextActive]}>List View</Text>
-          </TouchableOpacity>
+            <View style={styles.layoutBtnInner}>
+              <Ionicons name="list-outline" size={20} color={settings.preferences.defaultLayout === 'list' ? '#f59e0b' : '#fff'} />
+              <Text style={[styles.layoutBtnText, settings.preferences.defaultLayout === 'list' && styles.layoutBtnTextActive]}>List View</Text>
+            </View>
+          </PressScale>
         </View>
       </View>
 
-      {/* Accent Color */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="color-palette-outline" size={22} color="#ffae00" />
-          <Text style={styles.cardTitle}>Accent Color</Text>
-        </View>
-        <Text style={styles.cardDesc}>Personalize the application theme color.</Text>
-        <View style={styles.colorGrid}>
-          {ACCENT_COLORS.map(c => {
-            const isActive = settings.preferences.accentColor === c.value;
-            return (
-              <TouchableOpacity
-                key={c.value}
-                style={[styles.colorSwatch, { backgroundColor: c.value }, isActive && styles.colorSwatchActive]}
-                onPress={() => handleSelect('preferences', 'accentColor', c.value)}
-              >
-                {isActive && <Ionicons name="checkmark" size={20} color="#fff" />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
 
-      {/* Switches */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Ionicons name="settings-outline" size={22} color="#ffae00" />
-          <Text style={styles.cardTitle}>Display Preferences</Text>
-        </View>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={styles.toggleLabel}>Autoplay Trailers</Text>
-            <Text style={styles.toggleDesc}>Automatically play video trailers on homepage</Text>
-          </View>
-          <Switch
-            value={settings.preferences.autoplayTrailers}
-            onValueChange={() => handleToggle('preferences', 'autoplayTrailers')}
-            trackColor={{ false: '#334155', true: '#ff6b6b' }}
-            thumbColor="#fff"
-          />
-        </View>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={styles.toggleLabel}>NSFW Content</Text>
-            <Text style={styles.toggleDesc}>Unblur covers and display adult listings</Text>
-          </View>
-          <Switch
-            value={settings.preferences.nsfwContent}
-            onValueChange={() => handleToggle('preferences', 'nsfwContent')}
-            trackColor={{ false: '#334155', true: '#ff6b6b' }}
-            thumbColor="#fff"
-          />
-        </View>
-      </View>
     </View>
   );
 
@@ -683,9 +625,9 @@ export default function SettingsScreen({ navigation }) {
             <Text style={styles.profileEmail}>{user?.email}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.btnSecondary} onPress={() => navigation.navigate('Profile')}>
-          <Text style={styles.btnSecondaryText}>✏️ Go to Profile Page</Text>
-        </TouchableOpacity>
+        <PressScale style={styles.btnSecondary} onPress={() => navigation.navigate('Profile')}>
+          <View style={styles.btnIconRow}><Ionicons name="person-outline" size={16} color="rgba(255,255,255,0.8)" style={{ marginRight: 8 }} /><Text style={styles.btnSecondaryText}>Go to Profile Page</Text></View>
+        </PressScale>
       </View>
 
       <View style={styles.card}>
@@ -717,22 +659,22 @@ export default function SettingsScreen({ navigation }) {
         </View>
         <Text style={styles.cardDesc}>Control who can view your libraries and stats pages.</Text>
         <View style={styles.optionPillsRow}>
-          <TouchableOpacity
+          <PressScale
             style={[styles.pill, settings.privacy.profileVisibility === 'public' && styles.pillActive]}
             onPress={() => handleSelect('privacy', 'profileVisibility', 'public')}
           >
             <Text style={styles.pillIconText}>🌍</Text>
             <Text style={[styles.pillText, settings.privacy.profileVisibility === 'public' && styles.pillTextActive]}>Public</Text>
             <Text style={[styles.pillSubtext, settings.privacy.profileVisibility === 'public' && styles.pillSubtextActive]}>Anyone can view profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </PressScale>
+          <PressScale
             style={[styles.pill, settings.privacy.profileVisibility === 'private' && styles.pillActive]}
             onPress={() => handleSelect('privacy', 'profileVisibility', 'private')}
           >
             <Text style={styles.pillIconText}>🔒</Text>
             <Text style={[styles.pillText, settings.privacy.profileVisibility === 'private' && styles.pillTextActive]}>Private</Text>
             <Text style={[styles.pillSubtext, settings.privacy.profileVisibility === 'private' && styles.pillSubtextActive]}>Only you can view data</Text>
-          </TouchableOpacity>
+          </PressScale>
         </View>
       </View>
 
@@ -745,9 +687,9 @@ export default function SettingsScreen({ navigation }) {
         <Text style={styles.cardDesc}>
           Download a complete export of your anime lists, ratings, progress, and settings to a JSON format.
         </Text>
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleExportData}>
-          <Text style={styles.btnText}>📦 Export Library Data</Text>
-        </TouchableOpacity>
+        <PressScale style={styles.btnPrimary} onPress={handleExportData}>
+          <View style={styles.btnIconRow}><Ionicons name="download-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>Export Library Data</Text></View>
+        </PressScale>
       </View>
     </View>
   );
@@ -769,7 +711,7 @@ export default function SettingsScreen({ navigation }) {
           <Switch
             value={settings.notifications.episodeAlerts}
             onValueChange={() => handleToggle('notifications', 'episodeAlerts')}
-            trackColor={{ false: '#334155', true: '#ff6b6b' }}
+            trackColor={{ false: '#334155', true: '#f59e0b' }}
             thumbColor="#fff"
           />
         </View>
@@ -782,7 +724,7 @@ export default function SettingsScreen({ navigation }) {
           <Switch
             value={settings.notifications.securityEmails}
             onValueChange={() => handleToggle('notifications', 'securityEmails')}
-            trackColor={{ false: '#334155', true: '#ff6b6b' }}
+            trackColor={{ false: '#334155', true: '#f59e0b' }}
             thumbColor="#fff"
           />
         </View>
@@ -795,7 +737,7 @@ export default function SettingsScreen({ navigation }) {
           <Switch
             value={settings.notifications.marketingEmails}
             onValueChange={() => handleToggle('notifications', 'marketingEmails')}
-            trackColor={{ false: '#334155', true: '#ff6b6b' }}
+            trackColor={{ false: '#334155', true: '#f59e0b' }}
             thumbColor="#fff"
           />
         </View>
@@ -821,20 +763,11 @@ export default function SettingsScreen({ navigation }) {
         <LinearGradient colors={['#030712', 'transparent']} style={StyleSheet.absoluteFill} />
       </Animated.View>
 
-      {/* Toast Alert */}
-      {toast.show && (
-        <View style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]}>
-          <Text style={styles.toastText}>
-            {toast.type === 'success' ? '✅ ' : '❌ '}{toast.message}
-          </Text>
-        </View>
-      )}
-
       {/* Header */}
       <LinearGradient colors={['#1e1b4b', '#0f172a']} style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <PressScale style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
+        </PressScale>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
@@ -850,7 +783,7 @@ export default function SettingsScreen({ navigation }) {
           {TABS.map(tab => {
             const isActive = activeTab === tab.id;
             return (
-              <TouchableOpacity
+              <PressScale
                 key={tab.id}
                 style={[styles.tabButton, isActive && styles.tabButtonActive]}
                 onPress={() => setActiveTab(tab.id)}
@@ -858,13 +791,13 @@ export default function SettingsScreen({ navigation }) {
                 <Ionicons
                   name={tab.icon}
                   size={16}
-                  color={isActive ? '#ff6b6b' : 'rgba(255,255,255,0.6)'}
+                  color={isActive ? '#f59e0b' : 'rgba(255,255,255,0.6)'}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
                   {tab.label}
                 </Text>
-              </TouchableOpacity>
+              </PressScale>
             );
           })}
         </ScrollView>
@@ -886,7 +819,7 @@ export default function SettingsScreen({ navigation }) {
           scrollEventThrottle={16}
         >
           {loading ? (
-            <ActivityIndicator size="large" color="#ff6b6b" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color="#f59e0b" style={{ marginTop: 40 }} />
           ) : (
             <>
               {renderTabContent()}
@@ -922,16 +855,16 @@ export default function SettingsScreen({ navigation }) {
                   </View>
                 )}
                 <View style={styles.modalActionRow}>
-                  <TouchableOpacity
+                  <PressScale
                     style={[styles.btnPrimary, { flex: 1 }]}
                     onPress={handleRequestDisableOtp}
                     disabled={actionLoading || (user?.authType === 'local' && !mfaPasswordInput)}
                   >
-                    <Text style={styles.btnText}>{actionLoading ? 'Sending...' : 'Send Code'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setShowMfaDisableModal(false)}>
-                    <Text style={styles.btnGhostText}>Cancel</Text>
-                  </TouchableOpacity>
+                    <View style={styles.btnIconRow}><Ionicons name="send-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{actionLoading ? 'Sending...' : 'Send Code'}</Text></View>
+                  </PressScale>
+                  <PressScale style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setShowMfaDisableModal(false)}>
+                    <View style={styles.btnIconRow}><Ionicons name="close-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} /><Text style={styles.btnGhostText}>Cancel</Text></View>
+                  </PressScale>
                 </View>
               </View>
             ) : (
@@ -947,16 +880,16 @@ export default function SettingsScreen({ navigation }) {
                   maxLength={6}
                 />
                 <View style={styles.modalActionRow}>
-                  <TouchableOpacity
+                  <PressScale
                     style={[styles.btnDanger, { flex: 1 }]}
                     onPress={handleDisableMfa}
                     disabled={saving || securityOtpInput.length !== 6}
                   >
-                    <Text style={styles.btnText}>{saving ? 'Disabling...' : 'Confirm Disable'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setSecurityStep('password')}>
-                    <Text style={styles.btnGhostText}>Back</Text>
-                  </TouchableOpacity>
+                    <View style={styles.btnIconRow}><Ionicons name="shield-off-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Disabling...' : 'Confirm Disable'}</Text></View>
+                  </PressScale>
+                  <PressScale style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setSecurityStep('password')}>
+                    <View style={styles.btnIconRow}><Ionicons name="arrow-back-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} /><Text style={styles.btnGhostText}>Back</Text></View>
+                  </PressScale>
                 </View>
               </View>
             )}
@@ -987,16 +920,16 @@ export default function SettingsScreen({ navigation }) {
                   </View>
                 )}
                 <View style={styles.modalActionRow}>
-                  <TouchableOpacity
+                  <PressScale
                     style={[styles.btnDanger, { flex: 1 }]}
                     onPress={handleRequestDeleteOtp}
                     disabled={actionLoading || (user?.authType === 'local' && !deleteConfirm)}
                   >
-                    <Text style={styles.btnText}>{actionLoading ? 'Sending...' : 'Send Code'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setShowDeleteModal(false)}>
-                    <Text style={styles.btnGhostText}>Cancel</Text>
-                  </TouchableOpacity>
+                    <View style={styles.btnIconRow}><Ionicons name="send-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{actionLoading ? 'Sending...' : 'Send Code'}</Text></View>
+                  </PressScale>
+                  <PressScale style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setShowDeleteModal(false)}>
+                    <View style={styles.btnIconRow}><Ionicons name="close-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} /><Text style={styles.btnGhostText}>Cancel</Text></View>
+                  </PressScale>
                 </View>
               </View>
             ) : (
@@ -1012,16 +945,16 @@ export default function SettingsScreen({ navigation }) {
                   maxLength={6}
                 />
                 <View style={styles.modalActionRow}>
-                  <TouchableOpacity
+                  <PressScale
                     style={[styles.btnDanger, { flex: 1 }]}
                     onPress={handleDeleteAccount}
                     disabled={saving || securityOtpInput.length !== 6}
                   >
-                    <Text style={styles.btnText}>{saving ? 'Deleting...' : 'Confirm Delete'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setSecurityStep('password')}>
-                    <Text style={styles.btnGhostText}>Back</Text>
-                  </TouchableOpacity>
+                    <View style={styles.btnIconRow}><Ionicons name="trash-outline" size={16} color="#111" style={{ marginRight: 8 }} /><Text style={styles.btnText}>{saving ? 'Deleting...' : 'Confirm Delete'}</Text></View>
+                  </PressScale>
+                  <PressScale style={[styles.btnGhost, { marginLeft: 10 }]} onPress={() => setSecurityStep('password')}>
+                    <View style={styles.btnIconRow}><Ionicons name="arrow-back-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginRight: 6 }} /><Text style={styles.btnGhostText}>Back</Text></View>
+                  </PressScale>
                 </View>
               </View>
             )}
@@ -1037,7 +970,7 @@ export default function SettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0f1e',
+    backgroundColor: '#030712',
   },
   scrollFade: {
     position: 'absolute', top: 0, left: 0, right: 0,
@@ -1088,8 +1021,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)',
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(255,107,107,0.12)',
-    borderColor: '#ff6b6b',
+    backgroundColor: 'rgba(245,158,11,0.12)',
+    borderColor: '#f59e0b',
   },
   tabButtonText: {
     color: 'rgba(255,255,255,0.6)',
@@ -1098,27 +1031,32 @@ const styles = StyleSheet.create({
     fontFamily: 'OutfitRegular',
   },
   tabButtonTextActive: {
-    color: '#ff6b6b',
+    color: '#f59e0b',
     fontWeight: '700',
   },
   content: {
     flex: 1,
     padding: 16,
   },
+  btnIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   section: {
-    gap: 16,
+    gap: 12,
   },
   card: {
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   cardTitle: {
     color: '#fff',
@@ -1131,7 +1069,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: 12,
     fontFamily: 'JosefinSans',
   },
   label: {
@@ -1152,21 +1090,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    marginBottom: 14,
+    marginBottom: 10,
     fontFamily: 'OutfitRegular',
   },
   form: {
     marginTop: 8,
   },
   btnPrimary: {
-    backgroundColor: '#ff6b6b',
-    borderRadius: 10,
-    paddingVertical: 12,
+    backgroundColor: '#f59e0b',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnText: {
-    color: '#fff',
+    color: '#111',
     fontSize: 14,
     fontWeight: '700',
     fontFamily: 'OutfitRegular',
@@ -1187,34 +1126,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     lineHeight: 16,
     fontFamily: 'JosefinSans',
-  },
-  toast: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 100 : 80,
-    left: 16,
-    right: 16,
-    zIndex: 9999,
-    padding: 12,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  toastSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.95)',
-  },
-  toastError: {
-    backgroundColor: 'rgba(239, 68, 68, 0.95)',
-  },
-  toastText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: 'OutfitRegular',
   },
   mfaStatusBox: {
     backgroundColor: 'rgba(255,255,255,0.01)',
@@ -1239,10 +1150,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(239,68,68,0.4)',
     backgroundColor: 'rgba(239,68,68,0.05)',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 10,
   },
   btnDangerText: {
     color: '#fca5a5',
@@ -1274,7 +1186,23 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
   },
+  keyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  copyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(245,158,11,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   keyBox: {
+    flex: 1,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
@@ -1294,13 +1222,14 @@ const styles = StyleSheet.create({
   modalActionRow: {
     flexDirection: 'row',
     marginTop: 8,
+    gap: 10,
   },
   btnGhost: {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1316,8 +1245,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    padding: 10,
+    marginBottom: 8,
   },
   sessionItemTop: {
     flexDirection: 'row',
@@ -1343,10 +1272,10 @@ const styles = StyleSheet.create({
     fontFamily: 'JetbrainsMono',
   },
   sessionArea: {
-    color: '#ff6b6b',
+    color: '#f59e0b',
     fontSize: 10,
     fontWeight: '600',
-    backgroundColor: 'rgba(255,107,107,0.1)',
+    backgroundColor: 'rgba(245,158,11,0.1)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1376,27 +1305,29 @@ const styles = StyleSheet.create({
   },
   btnDanger: {
     backgroundColor: '#ef4444',
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   optionPillsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   pill: {
     flex: 1,
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   pillActive: {
-    backgroundColor: 'rgba(255,107,107,0.08)',
-    borderColor: '#ff6b6b',
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderColor: '#f59e0b',
   },
   pillText: {
     color: 'rgba(255,255,255,0.7)',
@@ -1419,54 +1350,41 @@ const styles = StyleSheet.create({
   },
   layoutBtnRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   layoutBtn: {
     flex: 1,
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 20,
   },
   layoutBtnActive: {
-    borderColor: '#ff6b6b',
-    backgroundColor: 'rgba(255,107,107,0.08)',
+    borderColor: '#f59e0b',
+    backgroundColor: 'rgba(245,158,11,0.08)',
+  },
+  layoutBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   layoutBtnText: {
     color: 'rgba(255,255,255,0.7)',
     fontWeight: '600',
     fontSize: 13,
-    marginTop: 6,
     fontFamily: 'OutfitRegular',
   },
   layoutBtnTextActive: {
     color: '#fff',
   },
-  colorGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  colorSwatch: {
-    width: (width - 64 - 70) / 8,
-    height: (width - 64 - 70) / 8,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorSwatchActive: {
-    borderWidth: 2,
-    borderColor: '#fff',
-    transform: [{ scale: 1.1 }],
-  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
   },
@@ -1491,21 +1409,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 12,
   },
   profileAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,107,107,0.3)',
+    borderColor: 'rgba(245,158,11,0.3)',
   },
   profileAvatarPlaceholder: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#ff6b6b',
+    backgroundColor: '#f59e0b',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1533,8 +1451,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     alignItems: 'center',
   },
   btnSecondaryText: {
@@ -1580,7 +1499,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 20,
-    padding: 24,
+    padding: 20,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
@@ -1619,13 +1538,15 @@ const styles = StyleSheet.create({
     fontFamily: 'OutfitRegular',
   },
   loginBtn: {
-    backgroundColor: '#ff6b6b',
-    borderRadius: 10,
-    paddingVertical: 12,
+    backgroundColor: '#f59e0b',
+    borderRadius: 20,
+    paddingVertical: 10,
     paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loginBtnText: {
-    color: '#fff',
+    color: '#111',
     fontSize: 15,
     fontWeight: '700',
     fontFamily: 'OutfitRegular',
@@ -1633,11 +1554,8 @@ const styles = StyleSheet.create({
   versionFooter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 40,
-    marginBottom: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 10,
+    marginTop: 20,
   },
   versionText: {
     color: 'rgba(255, 255, 255, 0.5)',

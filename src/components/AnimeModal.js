@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
 import RelatedSection from './RelatedSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +28,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isAddingToList, setIsAddingToList] = useState(false);
   const { user, API } = useAuth();
+  const { showNotification } = useNotification();
   const scrollY = useRef(new Animated.Value(0)).current;
   const tabAnim = useRef(new Animated.Value(0)).current;
 
@@ -155,7 +157,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
 
   const addToList = async (status) => {
     if (!user) {
-      alert("Please log in to add anime to your list");
+      showNotification('error', "Please log in to add anime to your list");
       return;
     }
 
@@ -170,10 +172,10 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
       }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
-      alert(`Added to ${status} list!`);
+      showNotification('success', `Added to ${status} list!`);
     } catch (error) {
       console.error("Error adding to list:", error);
-      alert("Failed to add to list");
+      showNotification('error', "Failed to add to list");
     } finally {
       setIsAddingToList(false);
     }

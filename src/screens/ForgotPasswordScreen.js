@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
 
 const appIcon = require('../../assets/otakushelf_app_icon.png');
@@ -29,36 +30,6 @@ const useFloatingAnimation = (duration = 3000) => {
   return value;
 };
 
-// ─── Toast ──────────────────────────────────────────────────────────────────
-const Toast = ({ message, type }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateX = useRef(new Animated.Value(60)).current;
-
-  useEffect(() => {
-    if (!message) return;
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
-      Animated.spring(translateX, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
-    ]).start();
-    const t = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-        Animated.timing(translateX, { toValue: 60, duration: 220, useNativeDriver: true }),
-      ]).start();
-    }, 2800);
-    return () => clearTimeout(t);
-  }, [message]);
-
-  if (!message) return null;
-  const isSuccess = type === 'success';
-  return (
-    <Animated.View style={[styles.toast, isSuccess ? styles.toastSuccess : styles.toastError, { opacity, transform: [{ translateX }] }]}>
-      <Ionicons name={isSuccess ? 'checkmark-circle' : 'alert-circle'} size={18} color={isSuccess ? '#4ade80' : '#f87171'} />
-      <Text style={[styles.toastText, { color: isSuccess ? '#4ade80' : '#f87171' }]}>{message}</Text>
-    </Animated.View>
-  );
-};
-
 // ─── InputField ─────────────────────────────────────────────────────────────
 const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, editable, entranceDelay = 0, accentColor = '#ff6b6b' }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -69,8 +40,8 @@ const InputField = ({ icon, placeholder, value, onChangeText, secureTextEntry, k
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fieldOpacity, { toValue: 1, duration: 450, delay: entranceDelay, useNativeDriver: true }),
-      Animated.timing(fieldY, { toValue: 0, duration: 450, delay: entranceDelay, useNativeDriver: true }),
+      Animated.timing(fieldOpacity, { toValue: 1, duration: 450, delay: entranceDelay, useNativeDriver: false }),
+      Animated.timing(fieldY, { toValue: 0, duration: 450, delay: entranceDelay, useNativeDriver: false }),
     ]).start();
   }, []);
 
@@ -142,8 +113,8 @@ const ForgotPasswordScreen = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [step, setStep] = useState('email'); // 'email' | 'reset'
   const [isLoading, setIsLoading] = useState(false);
-  const [toast, setToast] = useState({ message: '', type: 'error' });
   const { API } = useAuth();
+  const { showNotification } = useNotification();
 
   const accentColor = '#14b8a6';
 
@@ -167,11 +138,6 @@ const ForgotPasswordScreen = ({ navigation }) => {
     ]).start();
   }, []);
 
-  const showToast = useCallback((message, type = 'error') => {
-    setToast({ message: '', type });
-    setTimeout(() => setToast({ message, type }), 10);
-  }, []);
-
   const transitionStep = (nextStep) => {
     Animated.timing(stepOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
       setStep(nextStep);
@@ -182,32 +148,32 @@ const ForgotPasswordScreen = ({ navigation }) => {
   const validateEmail = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
-      showToast('Please enter your email'); return false;
+      showNotification('error', 'Please enter your email'); return false;
     }
     if (!emailRegex.test(email.trim())) {
-      showToast('Enter a valid email address'); return false;
+      showNotification('error', 'Enter a valid email address'); return false;
     }
     return true;
   };
 
   const validatePassword = () => {
     if (!newPassword || !confirmPassword) {
-      showToast('Please fill in all fields'); return false;
+      showNotification('error', 'Please fill in all fields'); return false;
     }
     if (newPassword.length < 8) {
-      showToast('Password must be at least 8 characters'); return false;
+      showNotification('error', 'Password must be at least 8 characters'); return false;
     }
     if (!/[A-Z]/.test(newPassword)) {
-      showToast('Password must include an uppercase letter'); return false;
+      showNotification('error', 'Password must include an uppercase letter'); return false;
     }
     if (!/[0-9]/.test(newPassword)) {
-      showToast('Password must include a number'); return false;
+      showNotification('error', 'Password must include a number'); return false;
     }
     if (!/[^A-Za-z0-9]/.test(newPassword)) {
-      showToast('Password must include a special character'); return false;
+      showNotification('error', 'Password must include a special character'); return false;
     }
     if (newPassword !== confirmPassword) {
-      showToast('Passwords do not match'); return false;
+      showNotification('error', 'Passwords do not match'); return false;
     }
     return true;
   };
@@ -219,14 +185,14 @@ const ForgotPasswordScreen = ({ navigation }) => {
       await axios.post(`${API}/auth/forgot-password`, { email: email.trim() }, {
         withCredentials: true, timeout: 60000,
       });
-      showToast('Verification code sent to your email', 'success');
+      showNotification('success', 'Verification code sent to your email');
       setTimeout(() => transitionStep('reset'), 500);
     } catch (err) {
       let msg = 'Error sending reset code';
       if (err.code === 'ECONNABORTED') msg = 'Connection timeout. Check your internet.';
       else if (err.response) msg = err.response.data?.message || 'Email not found';
       else if (err.request) msg = 'Cannot reach server. Try again later.';
-      showToast(msg);
+      showNotification('error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -242,14 +208,14 @@ const ForgotPasswordScreen = ({ navigation }) => {
       }, {
         withCredentials: true, timeout: 60000,
       });
-      showToast('Password reset successfully!', 'success');
+      showNotification('success', 'Password reset successfully!');
       setTimeout(() => navigation.navigate('Login'), 1200);
     } catch (err) {
       let msg = 'Error resetting password';
       if (err.code === 'ECONNABORTED') msg = 'Connection timeout. Check your internet.';
       else if (err.response) msg = err.response.data?.message || 'Reset failed';
       else if (err.request) msg = 'Cannot reach server. Try again later.';
-      showToast(msg);
+      showNotification('error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -269,8 +235,6 @@ const ForgotPasswordScreen = ({ navigation }) => {
         <Animated.View style={[styles.orb, styles.orb2, { transform: [{ translateY: orb2TranslateY }] }]} />
         <Animated.View style={[styles.orb, styles.orb3, { transform: [{ translateY: orb3TranslateY }] }]} />
       </View>
-
-      <Toast message={toast.message} type={toast.type} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -508,18 +472,6 @@ const styles = StyleSheet.create({
   footerText: { textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 14 },
   footerLink: { fontWeight: '700' },
 
-  // Toast
-  toast: {
-    position: 'absolute', top: 55, right: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderRadius: 14, borderWidth: 1,
-    minWidth: 220, maxWidth: width - 32, zIndex: 9999,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 24, elevation: 14,
-  },
-  toastSuccess: { backgroundColor: 'rgba(22,163,74,0.18)', borderColor: 'rgba(74,222,128,0.25)' },
-  toastError: { backgroundColor: 'rgba(220,38,38,0.18)', borderColor: 'rgba(248,113,113,0.25)' },
-  toastText: { fontSize: 13, fontWeight: '600', flex: 1 },
 });
 
 export default ForgotPasswordScreen;
