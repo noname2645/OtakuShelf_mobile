@@ -261,7 +261,7 @@ const PieChart = ({ data }) => {
 
 
 const ProfileScreen = ({ navigation }) => {
-  const { user, token, loading: authLoading, updateProfile, API, logout, checkAuthStatus } = useAuth();
+  const { user, accessToken, loading: authLoading, updateProfile, API, logout, checkAuthStatus } = useAuth();
   const { showNotification } = useNotification();
 
   useEffect(() => {
@@ -295,7 +295,7 @@ const ProfileScreen = ({ navigation }) => {
     if (!uid || !animeId) return;
     toggleFavorite(animeId);
     try {
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = { Authorization: `Bearer ${accessToken}` };
       await axios.put(`${API}/api/list/${uid}/${animeId}`, { favorite: true }, { headers });
     } catch (err) {
       if (err?.response?.status === 404) {
@@ -309,7 +309,7 @@ const ProfileScreen = ({ navigation }) => {
             favorite: true,
             format: anime.format || 'TV',
           }, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${accessToken}` },
           });
         } catch (_) {}
       }
@@ -359,7 +359,7 @@ const ProfileScreen = ({ navigation }) => {
       const userId = user?._id || user?.id;
       if (!userId) return;
       
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = { Authorization: `Bearer ${accessToken}` };
 
       const [profileRes, listRes] = await Promise.all([
         axios.get(`${API}/api/profile/${userId}`, { headers }),
@@ -508,7 +508,7 @@ const ProfileScreen = ({ navigation }) => {
         const response = await axios.post(`${API}/api/profile/${userId}/upload-cover`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
+            Authorization: `Bearer ${accessToken}`,
           }
         });
         const resData = response.data?.data || response.data;
@@ -532,7 +532,7 @@ const ProfileScreen = ({ navigation }) => {
         const response = await axios.post(`${API}/api/profile/${userId}/upload-photo`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
+            Authorization: `Bearer ${accessToken}`,
           }
         });
 

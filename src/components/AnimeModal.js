@@ -26,7 +26,7 @@ const { width, height } = Dimensions.get('window');
 const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isAddingToList, setIsAddingToList] = useState(false);
-  const { user, token, API } = useAuth();
+  const { user, accessToken, API } = useAuth();
   const { showNotification } = useNotification();
   const scrollY = useRef(new Animated.Value(0)).current;
   const tabAnim = useRef(new Animated.Value(0)).current;
@@ -170,7 +170,7 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
         animeTitle: animeData.title,
         animeData: anime
       }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
       showNotification('success', `Added to ${status} list!`);
     } catch (error) {

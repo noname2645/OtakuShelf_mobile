@@ -190,10 +190,12 @@ const RegisterScreen = ({ navigation }) => {
       }
       
       console.log('[Google Auth] Response data:', res.data);
-      const userData = res.data?.data?.user || res.data?.user;
-      const token = res.data?.data?.token || res.data?.token;
-      if (userData && token) {
-        await login(userData, token);
+      const data = res.data?.data || res.data;
+      const userData = data?.user;
+      const accessToken = data?.accessToken;
+      const refreshToken = data?.refreshToken;
+      if (userData && accessToken && refreshToken) {
+        await login(userData, accessToken, refreshToken);
         navigation.replace('Home');
       } else {
         console.error('[Google Auth] Invalid response format:', res.data);
@@ -268,19 +270,17 @@ const RegisterScreen = ({ navigation }) => {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      await axios.post(`${API}/auth/register`, { email: email.trim(), password }, {
+      const res = await axios.post(`${API}/auth/register`, { email: email.trim(), password }, {
         withCredentials: true, timeout: 60000,
       });
 
-      const loginRes = await axios.post(`${API}/auth/login`, { email: email.trim(), password }, {
-        withCredentials: true, timeout: 60000,
-      });
+      const data = res.data?.data || res.data;
+      const userData = data?.user;
+      const accessToken = data?.accessToken;
+      const refreshToken = data?.refreshToken;
 
-      const userData = loginRes.data?.data?.user || loginRes.data?.user;
-      const token = loginRes.data?.data?.token || loginRes.data?.token;
-
-      if (userData && token) {
-        await login(userData, token);
+      if (userData && accessToken && refreshToken) {
+        await login(userData, accessToken, refreshToken);
         setEmail(''); setPassword(''); setConfirmPassword('');
         navigation.replace('Home');
       } else {

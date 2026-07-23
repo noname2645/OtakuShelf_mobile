@@ -169,10 +169,12 @@ const LoginScreen = ({ navigation }) => {
       }
       
       console.log('[Google Auth] Response data:', res.data);
-      const userData = res.data?.data?.user || res.data?.user;
-      const token = res.data?.data?.token || res.data?.token;
-      if (userData && token) {
-        await login(userData, token);
+      const data = res.data?.data || res.data;
+      const userData = data?.user;
+      const accessToken = data?.accessToken;
+      const refreshToken = data?.refreshToken;
+      if (userData && accessToken && refreshToken) {
+        await login(userData, accessToken, refreshToken);
         setEmail(''); setPassword(''); setMfaCode('');
         navigation.replace('Home');
       } else {
@@ -260,11 +262,13 @@ const LoginScreen = ({ navigation }) => {
         return;
       }
 
-      const userData = res.data?.data?.user || res.data?.user;
-      const token = res.data?.data?.token || res.data?.token;
+      const data = res.data?.data || res.data;
+      const userData = data?.user;
+      const accessToken = data?.accessToken;
+      const refreshToken = data?.refreshToken;
 
-      if (userData && token) {
-        await login(userData, token);
+      if (userData && accessToken && refreshToken) {
+        await login(userData, accessToken, refreshToken);
         setEmail(''); setPassword(''); setMfaCode('');
         navigation.replace('Home');
       } else {

@@ -184,7 +184,7 @@ const AIScreen = ({ navigation }) => {
   const scrollViewRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  const { user, token, API } = useAuth();
+  const { user, accessToken, API } = useAuth();
 
   // Pulse animation for streaming border + status dot
   const statusPulse = usePulseAnim(2500);
@@ -306,7 +306,7 @@ const AIScreen = ({ navigation }) => {
 
       const res = await fetch(`${API}/api/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ message: text, history, userId: user?._id || user?.id, context: conversationContext }),
       });
 

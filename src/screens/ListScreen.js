@@ -269,7 +269,7 @@ const PremiumAnimeCard = React.memo(({
 // ─── List Screen ──────────────────────────────────────────────────────
 
 const ListScreen = () => {
-  const { user, loading: authLoading, token, API } = useAuth();
+  const { user, loading: authLoading, accessToken, API } = useAuth();
   const { showNotification } = useNotification();
   const navigation = useNavigation();
 
@@ -341,7 +341,7 @@ const ListScreen = () => {
       const uid = user?._id || user?.id;
       if (!uid) { setLoading(false); return; }
       const res = await axios.get(`${API}/api/list/${uid}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = res.data?.data || res.data;
       setAnimeList({
@@ -408,7 +408,7 @@ const ListScreen = () => {
 
     try {
       await axios.put(`${API}/api/list/${uid}/${id}`, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
     } catch { fetchAnimeList(); }
   }, [user, API, activeTab]);
@@ -421,7 +421,7 @@ const ListScreen = () => {
     updateAnimeInList(id, { favorite: next });
     try {
       await axios.put(`${API}/api/list/${uid}/${id}`, { favorite: next, status: anime.status || activeTab }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
     } catch { updateAnimeInList(id, { favorite: !next }); }
   }, [user, API, activeTab]);
@@ -437,7 +437,7 @@ const ListScreen = () => {
     updateAnimeInList(id, { episodesWatched: next });
     try {
       await axios.put(`${API}/api/list/${uid}/${id}`, { episodesWatched: next, category: activeTab }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (next >= total) handleStatusChange(anime, 'completed');
     } catch {
@@ -455,7 +455,7 @@ const ListScreen = () => {
     updateAnimeInList(id, { episodesWatched: next });
     try {
       await axios.put(`${API}/api/list/${uid}/${id}`, { episodesWatched: next, category: activeTab }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
     } catch {
       updateAnimeInList(id, { episodesWatched: curr });
@@ -469,7 +469,7 @@ const ListScreen = () => {
     updateAnimeInList(id, { userRating: rating });
     try {
       await axios.put(`${API}/api/list/${uid}/${id}`, { userRating: rating, status: anime.status || activeTab }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
     } catch {
       updateAnimeInList(id, { userRating: anime.userRating || 0 });
@@ -485,7 +485,7 @@ const ListScreen = () => {
           if (!uid) return;
           try {
             await axios.delete(`${API}/api/list/${uid}/${id}`, {
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              headers: { Authorization: `Bearer ${accessToken}` },
             });
             setAnimeList(prev => {
               const next = { ...prev };
@@ -545,7 +545,7 @@ const ListScreen = () => {
     fd.append('clearExisting', (importOption === 'replace').toString());
     try {
       const res = await axios.post(`${API}/api/list/import/mal`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${accessToken}` },
       });
       if (res.data.success) { showNotification('success', res.data.message); fetchAnimeList(); }
       else showNotification('error', res.data.message);
@@ -582,7 +582,7 @@ const ListScreen = () => {
     };
     try {
       await axios.post(`${API}/api/list/${uid}`, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       showNotification('success', `${payload.title} added to your list.`);
       setAddQuery('');

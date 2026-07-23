@@ -39,7 +39,7 @@ const TABS = [
 ];
 
 export default function SettingsScreen({ navigation }) {
-  const { user, token, logout, refreshProfile, API } = useAuth();
+  const { user, accessToken, logout, refreshProfile, API } = useAuth();
 
   const [activeTab, setActiveTab] = useState('security');
   const [loading, setLoading] = useState(true);
@@ -99,7 +99,7 @@ export default function SettingsScreen({ navigation }) {
     const loadSettings = async () => {
       try {
         const response = await axios.get(`${API}/api/settings/${userId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
         const data = response.data.data;
         if (data) {
@@ -123,7 +123,7 @@ export default function SettingsScreen({ navigation }) {
     setSaving(true);
     try {
       await axios.put(`${API}/api/settings/${userId}`, { [category]: data }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', 'Settings saved!');
       refreshProfile(); // update context globally
@@ -167,7 +167,7 @@ export default function SettingsScreen({ navigation }) {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', 'Password changed successfully!');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -183,7 +183,7 @@ export default function SettingsScreen({ navigation }) {
     setMfaSaving(true);
     try {
       const response = await axios.get(`${API}/api/mfa/setup/${userId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       setMfaSetup(response.data.data);
     } catch (err) {
@@ -197,8 +197,8 @@ export default function SettingsScreen({ navigation }) {
     setMfaSaving(true);
     try {
 
-      await axios.post(`${API}/api/mfa/verify/${userId}`, { token: mfaTokenInput }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      await axios.post(`${API}/api/mfa/verify/${userId}`, { accessToken: mfaTokenInput }, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', '2FA successfully enabled!');
       refreshProfile();
@@ -220,7 +220,7 @@ export default function SettingsScreen({ navigation }) {
         action: 'mfa_disable',
         password: mfaPasswordInput
       }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', 'Verification code sent to your email');
       setSecurityStep('otp');
@@ -237,7 +237,7 @@ export default function SettingsScreen({ navigation }) {
     try {
 
       await axios.post(`${API}/api/mfa/disable/${userId}`, { otp: securityOtpInput }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', '2FA has been disabled');
       refreshProfile();
@@ -262,7 +262,7 @@ export default function SettingsScreen({ navigation }) {
         action: 'delete_account',
         password: deleteConfirm
       }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', 'Verification code sent to your email');
       setSecurityStep('otp');
@@ -279,7 +279,7 @@ export default function SettingsScreen({ navigation }) {
     try {
 
       await axios.delete(`${API}/auth/delete-account`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         data: {
           otp: securityOtpInput,
           password: deleteConfirm
@@ -299,7 +299,7 @@ export default function SettingsScreen({ navigation }) {
     try {
 
       const response = await axios.get(`${API}/api/settings/${userId}/sessions`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       setSessions(response.data.data?.sessions || []);
     } catch (err) {
@@ -312,7 +312,7 @@ export default function SettingsScreen({ navigation }) {
     try {
 
       await axios.delete(`${API}/api/settings/${userId}/sessions`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       showNotification('success', 'All other sessions terminated');
       loadSessions();
@@ -326,7 +326,7 @@ export default function SettingsScreen({ navigation }) {
     try {
 
       const response = await axios.get(`${API}/api/settings/${userId}/export`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
       await Share.share({
         message: JSON.stringify(response.data, null, 2),
