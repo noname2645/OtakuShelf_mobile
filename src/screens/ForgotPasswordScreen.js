@@ -7,6 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
@@ -145,6 +146,9 @@ const ForgotPasswordScreen = ({ navigation }) => {
     });
   };
 
+  const accentGradient = ['#2dd4bf', '#14b8a6', '#0d9488'];
+  const accentShine = ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0)'];
+
   const validateEmail = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
@@ -240,6 +244,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardY }] }]}>
+            <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
 
             {/* Card glow */}
             <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]} />
@@ -343,19 +348,20 @@ const ForgotPasswordScreen = ({ navigation }) => {
               activeOpacity={0.85}
               style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
             >
+              <LinearGradient colors={accentGradient} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.primaryBg} />
+              <LinearGradient colors={accentShine} start={{x:0,y:0}} end={{x:0,y:0.5}} style={styles.primaryShine} />
               {isLoading ? (
                 <View style={styles.primaryBtnInner}>
-                  <ActivityIndicator color="#000" size="small" />
-                  <Text style={[styles.primaryBtnText, { color: '#000' }]}>
+                  <ActivityIndicator color={step === 'email' ? '#000' : '#fff'} size="small" />
+                  <Text style={[styles.primaryBtnText, { color: step === 'email' ? '#000' : '#fff' }]}>
                     {step === 'email' ? 'Sending...' : 'Resetting...'}
                   </Text>
                 </View>
               ) : (
                 <View style={styles.primaryBtnInner}>
-                  <Text style={[styles.primaryBtnText, { color: '#000' }]}>
+                  <Text style={[styles.primaryBtnText, { color: step === 'email' ? '#000' : '#fff' }]}>
                     {step === 'email' ? 'Send Reset Code' : 'Reset Password'}
                   </Text>
-                  <Text style={[styles.primaryBtnArrow, { color: '#000' }]}>→</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -394,6 +400,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
     shadowColor: '#000', shadowOffset: { width: 0, height: 24 },
     shadowOpacity: 0.55, shadowRadius: 60, elevation: 20,
+    overflow: 'hidden',
     marginBottom: 20,
   },
   cardGlow: {
@@ -456,15 +463,29 @@ const styles = StyleSheet.create({
   // Primary button
   primaryBtn: {
     borderRadius: 50, overflow: 'hidden', marginTop: 6, marginBottom: 4,
-    backgroundColor: '#14b8a6',
+    shadowColor: '#14b8a6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.55,
+    shadowRadius: 22,
+    elevation: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  primaryBg: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 50,
+  },
+  primaryShine: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 50,
   },
   primaryBtnDisabled: { backgroundColor: '#888' },
   primaryBtnInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, gap: 10,
   },
-  primaryBtnText: { fontSize: 17, fontWeight: '800', letterSpacing: 1 },
-  primaryBtnArrow: { fontSize: 18, fontWeight: '700' },
+  primaryBtnText: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: 1, fontFamily: 'OutfitRegular' },
+  primaryBtnArrow: { color: '#fff', fontSize: 18, fontWeight: '700' },
 
   // Footer
   footer: { marginTop: 24 },

@@ -61,7 +61,9 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
 
     let studio = "N/A";
     if (anime.studios) {
-      if (anime.studios.edges) {
+      if (Array.isArray(anime.studios)) {
+        studio = anime.studios.slice(0, 2).join(", ") || "N/A";
+      } else if (anime.studios.edges) {
         const edges = anime.studios.edges.slice(0, 2);
         studio = edges.map(edge => edge?.node?.name).filter(Boolean).join(", ") || "N/A";
       } else if (anime.studios.nodes) {

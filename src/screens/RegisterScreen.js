@@ -7,9 +7,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
-import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
@@ -131,35 +131,31 @@ const RegisterScreen = ({ navigation }) => {
   const { login, API } = useAuth();
   const { showNotification } = useNotification();
 
-  const redirectUri = makeRedirectUri({ useProxy: true });
-
-  const [googleRequest, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
-    redirectUri,
-  });
-
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const idToken = googleResponse.params?.id_token;
-      if (!idToken) return;
-      (async () => {
-        try {
-          const res = await axios.post(`${API}/auth/google`, { idToken });
-          const userData = res.data?.user;
-          const token = res.data?.token;
-          if (userData && token) {
-            await login(userData, token);
-            navigation.replace('Home');
-          }
-        } catch (err) {
-          showNotification('error', err.response?.data?.message || err.message);
-        }
-      })();
+  const handleGoogleLogin = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      GoogleSignin.configure({
+        webClientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
+        offlineAccess: true,
+      });
+      const result = await GoogleSignin.signIn();
+      if (result.type !== 'success') return;
+      const idToken = result.data.idToken;
+      if (!idToken) {
+        showNotification('error', 'Google sign-in failed');
+        return;
+      }
+      const res = await axios.post(`${API}/auth/google`, { idToken });
+      const userData = res.data?.user;
+      const token = res.data?.token;
+      if (userData && token) {
+        await login(userData, token);
+        navigation.replace('Home');
+      }
+    } catch (err) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) return;
+      showNotification('error', err.message || 'Google sign-in failed');
     }
-  }, [googleResponse]);
-
-  const handleGoogleLogin = () => {
-    googlePromptAsync({ useProxy: true });
   };
 
   // Floating animations
@@ -261,6 +257,7 @@ const RegisterScreen = ({ navigation }) => {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardY }] }]}>
+            <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
 
             {/* Card glow */}
             <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]} />
@@ -320,16 +317,17 @@ const RegisterScreen = ({ navigation }) => {
 
             {/* Register button */}
             <TouchableOpacity onPress={handleRegister} disabled={isLoading} activeOpacity={0.85} style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}>
+              <LinearGradient colors={['#e879f9', '#a855f7', '#7c3aed']} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.primaryBg} />
+              <LinearGradient colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0)']} start={{x:0,y:0}} end={{x:0,y:0.5}} style={styles.primaryShine} />
               {isLoading ? (
                 <View style={styles.primaryBtnInner}>
                   <ActivityIndicator color="#fff" size="small" />
                   <Text style={[styles.primaryBtnText, { color: '#fff' }]}>Signing Up...</Text>
                 </View>
               ) : (
-                <View style={styles.primaryBtnInner}>
-                  <Text style={[styles.primaryBtnText, { color: '#fff' }]}>Register</Text>
-                  <Text style={[styles.primaryBtnArrow, { color: '#fff' }]}>→</Text>
-                </View>
+                  <View style={styles.primaryBtnInner}>
+                    <Text style={[styles.primaryBtnText, { color: '#fff' }]}>Register</Text>
+                  </View>
               )}
             </TouchableOpacity>
 
@@ -385,6 +383,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
     shadowColor: '#000', shadowOffset: { width: 0, height: 24 },
     shadowOpacity: 0.55, shadowRadius: 60, elevation: 20,
+    overflow: 'hidden',
     marginBottom: 20,
   },
   cardGlow: {
@@ -449,14 +448,28 @@ const styles = StyleSheet.create({
   // Primary button
   primaryBtn: {
     borderRadius: 50, overflow: 'hidden', marginTop: 8, marginBottom: 4,
-    backgroundColor: '#a855f7',
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  primaryBg: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 50,
+  },
+  primaryShine: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 50,
   },
   primaryBtnDisabled: { backgroundColor: '#666' },
   primaryBtnInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, gap: 10,
   },
-  primaryBtnText: { fontSize: 17, fontWeight: '800', letterSpacing: 1 },
+  primaryBtnText: { fontSize: 17, fontWeight: '800', letterSpacing: 1, color: '#fff', fontFamily: 'OutfitRegular' },
   primaryBtnArrow: { fontSize: 18, fontWeight: '700' },
 
   // Divider
@@ -467,9 +480,15 @@ const styles = StyleSheet.create({
   // Google button
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 50, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+    overflow: 'hidden',
     marginBottom: 4,
   },
   googleText: { color: '#fff', fontSize: 15, fontWeight: '600' },

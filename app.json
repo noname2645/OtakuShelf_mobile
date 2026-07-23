@@ -15,13 +15,6 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.otakushelf.mobile",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/otakushelf_app_icon.png",
@@ -40,6 +33,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-web-browser",
       [
         "expo-image-picker",

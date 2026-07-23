@@ -143,7 +143,17 @@ export const AuthProvider = ({ children }) => {
         if (storedUser) {
           setUser(normalizeUser(storedUser));
           fetchFreshProfile(storedUser._id || storedUser.id)
-            .then(setProfile)
+            .then((profileData) => {
+              setProfile(profileData);
+              if (profileData?.photo) {
+                const updatedUser = normalizeUser({
+                  ...storedUser,
+                  photo: profileData.photo,
+                });
+                setUser(updatedUser);
+                storeMinimalUser(updatedUser);
+              }
+            })
             .catch(() => console.log("Offline mode: using stored user only"));
         }
         setLoading(false);
@@ -165,7 +175,17 @@ export const AuthProvider = ({ children }) => {
 
         // Fetch profile in background - don't block on it
         fetchFreshProfile(userData._id || userData.id)
-          .then(setProfile)
+          .then((profileData) => {
+            setProfile(profileData);
+            if (profileData?.photo) {
+              const updatedUser = normalizeUser({
+                ...userData,
+                photo: profileData.photo,
+              });
+              setUser(updatedUser);
+              storeMinimalUser(updatedUser);
+            }
+          })
           .catch(() => console.log("Profile fetch failed, continuing anyway"));
       } else {
         await clearStorage();
@@ -223,7 +243,10 @@ export const AuthProvider = ({ children }) => {
           userData._id || userData.id,
         );
 
-        // Update state
+        if (profileData?.photo) {
+          userData = { ...userData, photo: profileData.photo };
+        }
+
         const normalizedUser = normalizeUser(userData);
         setUser(normalizedUser);
         setProfile(profileData);

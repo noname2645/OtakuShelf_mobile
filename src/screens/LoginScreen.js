@@ -7,9 +7,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import Svg, { Path } from 'react-native-svg';
-import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
@@ -109,33 +109,33 @@ const LoginScreen = ({ navigation }) => {
   const { login, API } = useAuth();
   const { showNotification } = useNotification();
 
-  const redirectUri = makeRedirectUri({ useProxy: true });
-
-  const [googleRequest, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
-    redirectUri,
-  });
-
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const idToken = googleResponse.params?.id_token;
-      if (!idToken) return;
-      (async () => {
-        try {
-          const res = await axios.post(`${API}/auth/google`, { idToken });
-          const userData = res.data?.user;
-          const token = res.data?.token;
-          if (userData && token) {
-            await login(userData, token);
-            setEmail(''); setPassword(''); setMfaCode('');
-            navigation.replace('Home');
-          }
-        } catch (err) {
-          showNotification('error', err.response?.data?.message || err.message);
-        }
-      })();
+  const handleGoogleLogin = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      GoogleSignin.configure({
+        webClientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
+        offlineAccess: true,
+      });
+      const result = await GoogleSignin.signIn();
+      if (result.type !== 'success') return;
+      const idToken = result.data.idToken;
+      if (!idToken) {
+        showNotification('error', 'Google sign-in failed');
+        return;
+      }
+      const res = await axios.post(`${API}/auth/google`, { idToken });
+      const userData = res.data?.user;
+      const token = res.data?.token;
+      if (userData && token) {
+        await login(userData, token);
+        setEmail(''); setPassword(''); setMfaCode('');
+        navigation.replace('Home');
+      }
+    } catch (err) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) return;
+      showNotification('error', err.message || 'Google sign-in failed');
     }
-  }, [googleResponse]);
+  };
 
   // Floating animations
   const orb1Y = useFloatingAnimation(2800);
@@ -218,10 +218,6 @@ const LoginScreen = ({ navigation }) => {
     });
   };
 
-  const handleGoogleLogin = () => {
-    googlePromptAsync({ useProxy: true });
-  };
-
   const orb1TranslateY = orb1Y.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
   const orb2TranslateY = orb2Y.interpolate({ inputRange: [0, 1], outputRange: [0, 25] });
   const orb3TranslateY = orb3Y.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
@@ -242,6 +238,7 @@ const LoginScreen = ({ navigation }) => {
 
           {/* Card */}
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardY }] }]}>
+            <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
 
             {/* Card glow */}
             <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]} />
@@ -332,16 +329,17 @@ const LoginScreen = ({ navigation }) => {
               activeOpacity={0.85}
               style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
             >
+              <LinearGradient colors={['#ff8a65', '#ff6b35', '#e85d04']} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.primaryBg} />
+              <LinearGradient colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0)']} start={{x:0,y:0}} end={{x:0,y:0.6}} style={styles.primaryShine} />
               {isLoading ? (
                 <View style={styles.primaryBtnInner}>
                   <ActivityIndicator color="#000" size="small" />
                   <Text style={styles.primaryBtnText}>Signing In...</Text>
                 </View>
               ) : (
-                <View style={styles.primaryBtnInner}>
-                  <Text style={styles.primaryBtnText}>Login</Text>
-                  <Text style={styles.primaryBtnArrow}>→</Text>
-                </View>
+                  <View style={styles.primaryBtnInner}>
+                    <Text style={styles.primaryBtnText}>Login</Text>
+                  </View>
               )}
             </TouchableOpacity>
 
@@ -410,7 +408,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.55,
     shadowRadius: 60,
     elevation: 20,
-    overflow: 'visible',
+    overflow: 'hidden',
     marginBottom: 20,
   },
   cardGlow: {
@@ -486,14 +484,28 @@ const styles = StyleSheet.create({
   // Primary button
   primaryBtn: {
     borderRadius: 50, overflow: 'hidden', marginTop: 6, marginBottom: 4,
-    backgroundColor: '#eb9b08',
+    shadowColor: '#ff6b35',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.55,
+    shadowRadius: 22,
+    elevation: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  primaryBg: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 50,
+  },
+  primaryShine: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 50,
   },
   primaryBtnDisabled: { backgroundColor: '#888' },
   primaryBtnInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, gap: 10,
   },
-  primaryBtnText: { color: '#000', fontSize: 17, fontWeight: '800', letterSpacing: 1 },
+  primaryBtnText: { color: '#000', fontSize: 17, fontWeight: '800', letterSpacing: 1, fontFamily: 'OutfitRegular' },
   primaryBtnArrow: { color: '#000', fontSize: 18, fontWeight: '700' },
 
   // Divider
@@ -504,9 +516,15 @@ const styles = StyleSheet.create({
   // Google button
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 50, paddingVertical: 15,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+    overflow: 'hidden',
   },
   googleText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 
