@@ -144,7 +144,7 @@ const BottomNavBar = () => {
 
   return (
     <View style={styles.safeArea} pointerEvents="box-none">
-      <BlurView intensity={85} tint="dark" style={[styles.bottomBar, { width: getNavBarWidth() }]}>
+      <BlurView intensity={100} tint="dark" style={[styles.bottomBar, { width: getNavBarWidth() }]}>
         {TABS.map((tab, index) => {
           const isActive = activePage === tab.name;
           const colorStr = tab.color.join(', ');
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: 'rgba(10, 8, 22, 0.75)',
+    backgroundColor: 'rgba(10, 8, 22, 0.85)',
     borderRadius: 40,
     paddingVertical: 8,
     paddingHorizontal: 8,

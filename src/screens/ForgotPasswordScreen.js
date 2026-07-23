@@ -110,6 +110,7 @@ const PasswordStrength = ({ password }) => {
 // ─── ForgotPasswordScreen ─────────────────────────────────────────────────────
 const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [step, setStep] = useState('email'); // 'email' | 'reset'
@@ -161,8 +162,11 @@ const ForgotPasswordScreen = ({ navigation }) => {
   };
 
   const validatePassword = () => {
-    if (!newPassword || !confirmPassword) {
+    if (!otpCode || !newPassword || !confirmPassword) {
       showNotification('error', 'Please fill in all fields'); return false;
+    }
+    if (otpCode.length < 4) {
+      showNotification('error', 'Enter the verification code sent to your email'); return false;
     }
     if (newPassword.length < 8) {
       showNotification('error', 'Password must be at least 8 characters'); return false;
@@ -187,15 +191,15 @@ const ForgotPasswordScreen = ({ navigation }) => {
     setIsLoading(true);
     try {
       await axios.post(`${API}/auth/forgot-password`, { email: email.trim() }, {
-        withCredentials: true, timeout: 60000,
+        timeout: 15000,
       });
       showNotification('success', 'Verification code sent to your email');
-      setTimeout(() => transitionStep('reset'), 500);
+      transitionStep('reset');
     } catch (err) {
       let msg = 'Error sending reset code';
-      if (err.code === 'ECONNABORTED') msg = 'Connection timeout. Check your internet.';
+      if (err.code === 'ECONNABORTED') msg = 'Server is waking up. Please try again.';
       else if (err.response) msg = err.response.data?.message || 'Email not found';
-      else if (err.request) msg = 'Cannot reach server. Try again later.';
+      else if (err.request) msg = 'Cannot reach server. Check your connection.';
       showNotification('error', msg);
     } finally {
       setIsLoading(false);
@@ -208,9 +212,10 @@ const ForgotPasswordScreen = ({ navigation }) => {
     try {
       await axios.post(`${API}/auth/reset-password`, {
         email: email.trim(),
+        otp: otpCode.trim(),
         newPassword,
       }, {
-        withCredentials: true, timeout: 60000,
+        timeout: 15000,
       });
       showNotification('success', 'Password reset successfully!');
       setTimeout(() => navigation.navigate('Login'), 1200);
@@ -302,12 +307,25 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   <View style={styles.fieldGroup}>
                     <InputField
                       icon="key-outline"
+                      placeholder="Verification code"
+                      value={otpCode}
+                      onChangeText={setOtpCode}
+                      keyboardType="number-pad"
+                      editable={!isLoading}
+                      entranceDelay={100}
+                      accentColor={accentColor}
+                    />
+                  </View>
+
+                  <View style={styles.fieldGroup}>
+                    <InputField
+                      icon="lock-closed-outline"
                       placeholder="New password (min 8 chars)"
                       value={newPassword}
                       onChangeText={setNewPassword}
                       secureTextEntry
                       editable={!isLoading}
-                      entranceDelay={100}
+                      entranceDelay={150}
                       accentColor={accentColor}
                     />
                     <PasswordStrength password={newPassword} />

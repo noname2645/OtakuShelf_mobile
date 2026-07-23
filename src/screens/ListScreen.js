@@ -25,7 +25,6 @@ import BottomNav from '../components/BottomNav';
 import AppFooter from '../components/AppFooter';
 import AnimeModal from '../components/AnimeModal';
 import StarRating from '../components/StarRating';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const CARD_W = (width - 40 - 14) / 2;
@@ -270,7 +269,7 @@ const PremiumAnimeCard = React.memo(({
 // ─── List Screen ──────────────────────────────────────────────────────
 
 const ListScreen = () => {
-  const { user, loading: authLoading, API } = useAuth();
+  const { user, loading: authLoading, token, API } = useAuth();
   const { showNotification } = useNotification();
   const navigation = useNavigation();
 
@@ -341,7 +340,6 @@ const ListScreen = () => {
       setError(null);
       const uid = user?._id || user?.id;
       if (!uid) { setLoading(false); return; }
-      const token = await AsyncStorage.getItem('token');
       const res = await axios.get(`${API}/api/list/${uid}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -409,7 +407,6 @@ const ListScreen = () => {
     if (oldStatus !== newStatus) moveAnime(id, oldStatus, newStatus);
 
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.put(`${API}/api/list/${uid}/${id}`, payload, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -423,7 +420,6 @@ const ListScreen = () => {
     const next = !anime.favorite;
     updateAnimeInList(id, { favorite: next });
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.put(`${API}/api/list/${uid}/${id}`, { favorite: next, status: anime.status || activeTab }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -440,7 +436,6 @@ const ListScreen = () => {
     const next = curr + 1;
     updateAnimeInList(id, { episodesWatched: next });
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.put(`${API}/api/list/${uid}/${id}`, { episodesWatched: next, category: activeTab }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -459,7 +454,6 @@ const ListScreen = () => {
     const next = curr - 1;
     updateAnimeInList(id, { episodesWatched: next });
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.put(`${API}/api/list/${uid}/${id}`, { episodesWatched: next, category: activeTab }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -474,7 +468,6 @@ const ListScreen = () => {
     const id = anime._id || anime.animeId;
     updateAnimeInList(id, { userRating: rating });
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.put(`${API}/api/list/${uid}/${id}`, { userRating: rating, status: anime.status || activeTab }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -491,7 +484,6 @@ const ListScreen = () => {
           const uid = user?._id || user?.id;
           if (!uid) return;
           try {
-            const token = await AsyncStorage.getItem('token');
             await axios.delete(`${API}/api/list/${uid}/${id}`, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -552,7 +544,6 @@ const ListScreen = () => {
     fd.append('userId', uid);
     fd.append('clearExisting', (importOption === 'replace').toString());
     try {
-      const token = await AsyncStorage.getItem('token');
       const res = await axios.post(`${API}/api/list/import/mal`, fd, {
         headers: { 'Content-Type': 'multipart/form-data', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
@@ -590,7 +581,6 @@ const ListScreen = () => {
       format: anime.type || 'TV',
     };
     try {
-      const token = await AsyncStorage.getItem('token');
       await axios.post(`${API}/api/list/${uid}`, payload, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

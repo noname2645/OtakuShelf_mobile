@@ -19,7 +19,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import axios from 'axios';
 import RelatedSection from './RelatedSection';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
   const MODAL_HEADER_HEIGHT = Math.min(width * 0.5, 220);
@@ -27,7 +26,7 @@ const { width, height } = Dimensions.get('window');
 const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [isAddingToList, setIsAddingToList] = useState(false);
-  const { user, API } = useAuth();
+  const { user, token, API } = useAuth();
   const { showNotification } = useNotification();
   const scrollY = useRef(new Animated.Value(0)).current;
   const tabAnim = useRef(new Animated.Value(0)).current;
@@ -166,7 +165,6 @@ const AnimeModal = ({ visible, anime, onClose, onOpenAnime }) => {
     setIsAddingToList(true);
     try {
       const userId = user._id || user.id;
-      const token = await AsyncStorage.getItem("token");
       await axios.post(`${API}/api/list/${userId}`, {
         category: status,
         animeTitle: animeData.title,
@@ -449,7 +447,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#030712',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    marginTop: 0,
+    marginTop: Platform.OS === 'ios' ? 90 : 60,
     overflow: 'hidden',
   },
   header: {

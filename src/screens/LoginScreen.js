@@ -105,35 +105,107 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { login, API } = useAuth();
   const { showNotification } = useNotification();
 
   const handleGoogleLogin = async () => {
     try {
-      await GoogleSignin.hasPlayServices();
+      setGoogleLoading(true);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       GoogleSignin.configure({
         webClientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
         offlineAccess: true,
       });
       const result = await GoogleSignin.signIn();
-      if (result.type !== 'success') return;
-      const idToken = result.data.idToken;
-      if (!idToken) {
-        showNotification('error', 'Google sign-in failed');
+      if (result.type !== 'success') {
+        if (result.type === 'noSavedCredentialFound') {
+          showNotification('error', 'No Google account found on device');
+        } else {
+          showNotification('error', 'Google sign-in was cancelled');
+        }
         return;
       }
-      const res = await axios.post(`${API}/auth/google`, { idToken });
-      const userData = res.data?.user;
-      const token = res.data?.token;
+      const idToken = result.data.idToken;
+      if (!idToken) {
+        showNotification('error', 'Google sign-in failed: no ID token returned');
+        return;
+      }
+      console.log('[Google Auth] Sending idToken to backend:', `${API}/auth/google`);
+      console.log('[Google Auth] idToken prefix:', idToken.substring(0, 20) + '...');
+      
+      let res;
+      try {
+        res = await axios.post(`${API}/auth/google`, { idToken }, {
+          timeout: 30000,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        });
+        console.log('[Google Auth] Axios response status:', res.status);
+      } catch (axiosErr) {
+        console.error('[Google Auth] Axios failed, trying fetch...');
+        console.error('[Google Auth] Axios error code:', axiosErr.code);
+        console.error('[Google Auth] Axios error message:', axiosErr.message);
+        
+        const fetchRes = await fetch(`${API}/auth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+        });
+        
+        if (!fetchRes.ok) {
+          const text = await fetchRes.text();
+          throw new Error(`HTTP ${fetchRes.status}: ${text}`);
+        }
+        
+        res = { data: await fetchRes.json(), status: fetchRes.status };
+        console.log('[Google Auth] Fetch response status:', res.status);
+      }
+      
+      console.log('[Google Auth] Response data:', res.data);
+      const userData = res.data?.data?.user || res.data?.user;
+      const token = res.data?.data?.token || res.data?.token;
       if (userData && token) {
         await login(userData, token);
         setEmail(''); setPassword(''); setMfaCode('');
         navigation.replace('Home');
+      } else {
+        console.error('[Google Auth] Invalid response format:', res.data);
+        showNotification('error', 'Invalid response from server');
       }
     } catch (err) {
-      if (err.code === statusCodes.SIGN_IN_CANCELLED) return;
-      showNotification('error', err.message || 'Google sign-in failed');
+      console.error('[Google Sign-In Error]', err);
+      console.error('[Google Sign-In Error] Code:', err.code);
+      console.error('[Google Sign-In Error] Message:', err.message);
+      if (err.config) {
+        console.error('[Google Sign-In Error] URL:', err.config.url);
+        console.error('[Google Sign-In Error] Method:', err.config.method);
+      }
+      let errorMessage = 'Google sign-in failed';
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        return;
+      } else if (err.code === statusCodes.NETWORK_ERROR) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (err.code === statusCodes.DEVELOPER_ERROR) {
+        errorMessage = 'Developer error. SHA-1 or package name mismatch in Google Cloud Console.';
+      } else if (err.code === statusCodes.ONE_TAP_START_FAILED) {
+        errorMessage = 'Could not start Google sign-in. Try again later.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
+        errorMessage = 'DNS lookup failed. Please check your network connection.';
+      } else if (err.message) {
+        errorMessage = `Google sign-in error: ${err.message}`;
+      }
+      showNotification('error', errorMessage);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -169,7 +241,7 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
 
-    setIsLoading(true);
+    setEmailLoading(true);
     try {
       const payload = { email: email.trim(), password };
       if (requiresMfa) payload.mfaCode = mfaCode;
@@ -206,7 +278,7 @@ const LoginScreen = ({ navigation }) => {
       else if (err.request) msg = 'Cannot reach server. Try again later.';
       showNotification('error', msg);
     } finally {
-      setIsLoading(false);
+      setEmailLoading(false);
     }
   };
 
@@ -281,7 +353,7 @@ const LoginScreen = ({ navigation }) => {
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
-                      editable={!isLoading}
+                      editable={!emailLoading}
                       entranceDelay={100}
                     />
                   </View>
@@ -293,7 +365,7 @@ const LoginScreen = ({ navigation }) => {
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry
-                      editable={!isLoading}
+                      editable={!emailLoading}
                       entranceDelay={200}
                     />
                     <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotRow}>
@@ -309,7 +381,7 @@ const LoginScreen = ({ navigation }) => {
                     value={mfaCode}
                     onChangeText={t => setMfaCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
                     keyboardType="number-pad"
-                    editable={!isLoading}
+                    editable={!emailLoading}
                     maxLength={6}
                     textAlign="center"
                     fontSize={22}
@@ -325,13 +397,13 @@ const LoginScreen = ({ navigation }) => {
             {/* Primary button */}
             <TouchableOpacity
               onPress={handleLogin}
-              disabled={isLoading}
+              disabled={emailLoading}
               activeOpacity={0.85}
-              style={[styles.primaryBtn, isLoading && styles.primaryBtnDisabled]}
+              style={[styles.primaryBtn, emailLoading && styles.primaryBtnDisabled]}
             >
               <LinearGradient colors={['#ff8a65', '#ff6b35', '#e85d04']} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.primaryBg} />
               <LinearGradient colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0)']} start={{x:0,y:0}} end={{x:0,y:0.6}} style={styles.primaryShine} />
-              {isLoading ? (
+              {emailLoading ? (
                 <View style={styles.primaryBtnInner}>
                   <ActivityIndicator color="#000" size="small" />
                   <Text style={styles.primaryBtnText}>Signing In...</Text>
@@ -351,9 +423,13 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             {/* Google button */}
-            <TouchableOpacity onPress={handleGoogleLogin} disabled={isLoading} activeOpacity={0.85} style={styles.googleBtn}>
-              <Svg_Google />
-              <Text style={styles.googleText}>Sign in with Google</Text>
+            <TouchableOpacity onPress={handleGoogleLogin} disabled={googleLoading} activeOpacity={0.85} style={styles.googleBtn}>
+              {googleLoading ? (
+                <ActivityIndicator color="#fff" size="small" style={{ marginRight: 10 }} />
+              ) : (
+                <Svg_Google />
+              )}
+              <Text style={styles.googleText}>{googleLoading ? 'Signing In...' : 'Sign in with Google'}</Text>
             </TouchableOpacity>
 
             {/* Footer */}

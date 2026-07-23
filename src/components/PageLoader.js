@@ -7,7 +7,8 @@ import {
   Dimensions,
   Easing,
 } from 'react-native';
-import Svg, { Path, Rect, Line } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path, Rect } from 'react-native-svg';
 
 const { width, height } = Dimensions.get('screen');
 
@@ -29,8 +30,10 @@ const ToriiGate = ({ size = 80, color = 'rgba(255, 115, 0, 0.5)' }) => (
 );
 
 // ─── PageLoader ───────────────────────────────────────────────────────────────
-const PageLoader = ({ onFinish }) => {
-  // Curtain panel animations
+const PageLoader = ({ onFinish, seenKey }) => {
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
+
   const leftCurtain = useRef(new Animated.Value(-width / 2)).current;
   const rightCurtain = useRef(new Animated.Value(width / 2)).current;
   const overlayOpacity = useRef(new Animated.Value(1)).current;
@@ -43,102 +46,121 @@ const PageLoader = ({ onFinish }) => {
   // Torii float
   const toriiFloat = useRef(new Animated.Value(0)).current;
 
-  // Typewriter state
-  const [tagline, setTagline] = useState('');
-  const [showCursor, setShowCursor] = useState(true);
   const FULL_TAGLINE = 'Your anime universe, curated.';
 
+  const [taglineVisible, setTaglineVisible] = useState(false);
+  const taglineOpacity = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    // ── Phase 1: Curtains slide IN (0–400ms)
-    Animated.parallel([
-      Animated.timing(leftCurtain, {
-        toValue: 0,
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(rightCurtain, {
-        toValue: 0,
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // ── Phase 1.5: Logo appears after curtains meet
+    let cancelled = false;
+    let curtainTimeout = null;
+    let splitTimeout = null;
+    let fadeTimeout = null;
+
+    const runAnimation = async () => {
+      if (seenKey) {
+        try {
+          const seen = await AsyncStorage.getItem(seenKey);
+          if (seen === 'true') {
+            if (!cancelled) onFinishRef.current?.();
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // ── Phase 1: Curtains slide IN (0–400ms)
       Animated.parallel([
-        Animated.spring(logoScale, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoTranslateY, {
+        Animated.timing(leftCurtain, {
           toValue: 0,
-          duration: 250,
-          easing: Easing.out(Easing.back(1.5)),
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 200,
+        Animated.timing(rightCurtain, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start();
-
-      // ── Typewriter after 100ms delay
-      let charIndex = 0;
-      const typeInterval = setTimeout(() => {
-        const interval = setInterval(() => {
-          charIndex++;
-          setTagline(FULL_TAGLINE.substring(0, charIndex));
-          if (charIndex >= FULL_TAGLINE.length) clearInterval(interval);
-        }, 18);
-      }, 100);
-
-      // ── Phase 2: Curtains SPLIT apart at 800ms
-      setTimeout(() => {
+      ]).start(() => {
+        // ── Phase 1.5: Logo + tagline appear after curtains meet
         Animated.parallel([
-          Animated.timing(leftCurtain, {
-            toValue: -width,
-            duration: 500,
-            easing: Easing.in(Easing.cubic),
+          Animated.spring(logoScale, {
+            toValue: 1,
+            tension: 100,
+            friction: 8,
             useNativeDriver: true,
           }),
-          Animated.timing(rightCurtain, {
-            toValue: width,
-            duration: 500,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(logoScale, {
-            toValue: 0.85,
-            duration: 400,
+          Animated.timing(logoTranslateY, {
+            toValue: 0,
+            duration: 250,
+            easing: Easing.out(Easing.back(1.5)),
             useNativeDriver: true,
           }),
           Animated.timing(logoOpacity, {
-            toValue: 0,
-            duration: 350,
+            toValue: 1,
+            duration: 200,
             useNativeDriver: true,
           }),
         ]).start();
-      }, 800);
 
-      // ── Phase 3: Overlay fades at 1300ms
-      setTimeout(() => {
-        Animated.timing(overlayOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onFinish && onFinish();
-        });
-      }, 1300);
+        curtainTimeout = setTimeout(() => {
+          setTaglineVisible(true);
+          Animated.timing(taglineOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+        }, 250);
 
-      return () => clearTimeout(typeInterval);
-    });
+        // ── Phase 2: Curtains SPLIT apart at 800ms
+        splitTimeout = setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(leftCurtain, {
+              toValue: -width,
+              duration: 500,
+              easing: Easing.in(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(rightCurtain, {
+              toValue: width,
+              duration: 500,
+              easing: Easing.in(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(logoScale, {
+              toValue: 0.85,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(logoOpacity, {
+              toValue: 0,
+              duration: 350,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }, 800);
+
+        // ── Phase 3: Overlay fades at 1300ms
+        fadeTimeout = setTimeout(() => {
+          Animated.timing(overlayOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            if (seenKey) {
+              AsyncStorage.setItem(seenKey, 'true').catch(() => {});
+            }
+            onFinishRef.current?.();
+          });
+        }, 1300);
+      });
+    };
+
+    runAnimation();
 
     // ── Torii floating loop
-    Animated.loop(
+    const toriiAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(toriiFloat, {
           toValue: -6,
@@ -153,15 +175,17 @@ const PageLoader = ({ onFinish }) => {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    toriiAnim.start();
 
-    // ── Cursor blink
-    const cursorInterval = setInterval(() => {
-      setShowCursor(prev => !prev);
-    }, 375);
-
-    return () => clearInterval(cursorInterval);
-  }, []);
+    return () => {
+      cancelled = true;
+      if (curtainTimeout) clearTimeout(curtainTimeout);
+      if (splitTimeout) clearTimeout(splitTimeout);
+      if (fadeTimeout) clearTimeout(fadeTimeout);
+      toriiAnim.stop();
+    };
+  }, [seenKey]);
 
   return (
     <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]} pointerEvents="auto">
@@ -201,11 +225,12 @@ const PageLoader = ({ onFinish }) => {
           <Text style={styles.brandShelf}>SHELF</Text>
         </View>
 
-        {/* Tagline with typewriter cursor */}
-        <View style={styles.taglineRow}>
-          <Text style={styles.taglineText}>{tagline}</Text>
-          <Text style={[styles.cursor, { opacity: showCursor ? 1 : 0 }]}>|</Text>
-        </View>
+        {/* Tagline with fade-in */}
+        {taglineVisible && (
+          <Animated.View style={{ opacity: taglineOpacity }}>
+            <Text style={styles.taglineText}>{FULL_TAGLINE}</Text>
+          </Animated.View>
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -275,11 +300,6 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
   },
 
-  taglineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
   taglineText: {
     fontFamily: 'OutfitRegular',
     fontSize: 14,
@@ -287,12 +307,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 220, 160, 0.7)',
     letterSpacing: 0.5,
   },
-  cursor: {
-    fontFamily: 'OutfitRegular',
-    fontSize: 14,
-    color: '#ff7300',
-    marginLeft: 1,
-  },
+
 });
 
 export default PageLoader;

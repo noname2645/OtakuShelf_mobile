@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
 
   // API base URL from centralized config
   const API = API_BASE_URL;
@@ -81,18 +82,13 @@ export const AuthProvider = ({ children }) => {
 
   const loadFromStorage = useCallback(async () => {
     try {
-      const userString = await AsyncStorage.getItem("user");
+      const [[, userString], [, userId], [, userEmail], [, userName]] =
+        await AsyncStorage.multiGet(["user", "user_id", "user_email", "user_name"]);
       if (userString) {
         return JSON.parse(userString);
       }
-
-      const userId = await AsyncStorage.getItem("user_id");
       if (userId) {
-        return {
-          id: userId,
-          email: (await AsyncStorage.getItem("user_email")) || "",
-          name: (await AsyncStorage.getItem("user_name")) || "User",
-        };
+        return { id: userId, _id: userId, email: userEmail || "", name: userName || "User" };
       }
     } catch (error) {
       console.error("Error loading from storage:", error);
@@ -111,6 +107,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.multiRemove([...userKeys, "token"]);
       setUser(null);
       setProfile(null);
+      setToken(null);
     } catch (error) {
       console.error("Error clearing storage:", error);
     }
@@ -119,10 +116,10 @@ export const AuthProvider = ({ children }) => {
   const fetchFreshProfile = useCallback(
     async (userId) => {
       try {
-        const token = await AsyncStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const response = await axios.get(`${API}/api/profile/${userId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          timeout: 60000,
+          headers,
+          timeout: 15000,
         });
 
         return response.data?.data || response.data;
@@ -131,17 +128,25 @@ export const AuthProvider = ({ children }) => {
         return null;
       }
     },
-    [API],
+    [API, token],
   );
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      const [storedToken, storedUser] = await Promise.all([
+        AsyncStorage.getItem("token"),
+        loadFromStorage(),
+      ]);
 
-      if (!token) {
-        const storedUser = await loadFromStorage();
+      if (storedToken) setToken(storedToken);
+
+      // Show cached user immediately if available
+      if (storedUser) {
+        setUser(normalizeUser(storedUser));
+      }
+
+      if (!storedToken) {
         if (storedUser) {
-          setUser(normalizeUser(storedUser));
           fetchFreshProfile(storedUser._id || storedUser.id)
             .then((profileData) => {
               setProfile(profileData);
@@ -160,63 +165,41 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // Try to verify token with backend
-      const response = await axios.get(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 60000, // Increased timeout for slow backends
-      });
+      // Verify token with backend in background (don't block UI)
+      try {
+        const response = await axios.get(`${API}/auth/me`, {
+          headers: { Authorization: `Bearer ${storedToken}` },
+          timeout: 15000,
+        });
 
-      const rawUser = response.data?.data?.user || response.data?.user;
+        const rawUser = response.data?.data?.user || response.data?.user;
 
-      if (rawUser) {
-        const userData = normalizeUser(rawUser);
-        setUser(userData);
-        await storeMinimalUser(userData);
+        if (rawUser) {
+          const userData = normalizeUser(rawUser);
+          setUser(userData);
+          await storeMinimalUser(userData);
 
-        // Fetch profile in background - don't block on it
-        fetchFreshProfile(userData._id || userData.id)
-          .then((profileData) => {
-            setProfile(profileData);
-            if (profileData?.photo) {
-              const updatedUser = normalizeUser({
-                ...userData,
-                photo: profileData.photo,
-              });
-              setUser(updatedUser);
-              storeMinimalUser(updatedUser);
-            }
-          })
-          .catch(() => console.log("Profile fetch failed, continuing anyway"));
-      } else {
-        await clearStorage();
-      }
-    } catch (error) {
-      console.log("Auth check error:", error.message);
-
-      // Handle network errors gracefully
-      if (
-        error.code === "ECONNABORTED" ||
-        error.code === "ERR_NETWORK" ||
-        error.message?.includes("Network Error") ||
-        error.message?.includes("timeout")
-      ) {
-        // Network error - use cached data
-        const storedUser = await loadFromStorage();
-        if (storedUser) {
-          setUser(normalizeUser(storedUser));
-          console.log("Network unavailable - using cached user data");
+          fetchFreshProfile(userData._id || userData.id)
+            .then((profileData) => {
+              setProfile(profileData);
+              if (profileData?.photo) {
+                const updatedUser = normalizeUser({
+                  ...userData,
+                  photo: profileData.photo,
+                });
+                setUser(updatedUser);
+                storeMinimalUser(updatedUser);
+              }
+            })
+            .catch(() => console.log("Profile fetch failed, continuing anyway"));
         } else {
-          console.log("No cached user data available");
+          await clearStorage();
         }
-      } else if (error.response?.status === 401) {
-        // Unauthorized - clear everything
-        await clearStorage();
-      } else {
-        // Other errors - try to use cached data
-        const storedUser = await loadFromStorage();
-        if (storedUser) {
-          setUser(normalizeUser(storedUser));
-          console.log("Error during auth check - using cached data");
+      } catch (error) {
+        console.log("Auth check error:", error.message);
+
+        if (error.response?.status === 401) {
+          await clearStorage();
         }
       }
     } finally {
@@ -236,6 +219,7 @@ export const AuthProvider = ({ children }) => {
         // Store token if provided
         if (authToken) {
           await AsyncStorage.setItem("token", authToken);
+          setToken(authToken);
         }
 
         // Fetch fresh profile data
@@ -276,18 +260,11 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = useCallback(
     async (profileData) => {
       try {
-        const currentUser =
-          user || JSON.parse(await AsyncStorage.getItem("user")) || {};
+        const currentUser = user || {};
         const userId = currentUser.id || currentUser._id;
 
-        if (!userId) {
-          throw new Error("User not authenticated");
-        }
-
-        const token = await AsyncStorage.getItem("token");
-        if (!token) {
-          throw new Error("Authentication token missing");
-        }
+        if (!userId) throw new Error("User not authenticated");
+        if (!token) throw new Error("Authentication token missing");
 
         const response = await axios.put(
           `${API}/api/profile/${userId}`,
@@ -297,7 +274,7 @@ export const AuthProvider = ({ children }) => {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-            timeout: 60000,
+            timeout: 15000,
           },
         );
 
@@ -311,10 +288,7 @@ export const AuthProvider = ({ children }) => {
           setUser(normalizedUser);
           await storeMinimalUser(normalizedUser);
 
-          const freshProfile = await fetchFreshProfile(userId);
-          if (freshProfile) {
-            setProfile(freshProfile);
-          }
+          fetchFreshProfile(userId).then(setProfile).catch(() => {});
         }
 
         return response.data;
@@ -323,7 +297,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
     },
-    [API, user, fetchFreshProfile, storeMinimalUser],
+    [API, user, token, fetchFreshProfile, storeMinimalUser],
   );
 
   const combinedUser = useMemo(() => user
@@ -339,6 +313,7 @@ export const AuthProvider = ({ children }) => {
     user: combinedUser,
     profile,
     loading,
+    token,
     login,
     logout,
     checkAuthStatus,

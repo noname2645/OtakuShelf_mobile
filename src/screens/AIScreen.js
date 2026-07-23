@@ -184,7 +184,7 @@ const AIScreen = ({ navigation }) => {
   const scrollViewRef = useRef(null);
   const typingIntervalRef = useRef(null);
 
-  const { user, API } = useAuth();
+  const { user, token, API } = useAuth();
 
   // Pulse animation for streaming border + status dot
   const statusPulse = usePulseAnim(2500);
@@ -299,7 +299,6 @@ const AIScreen = ({ navigation }) => {
     setTimeout(() => scrollToBottom(), 50);
 
     try {
-      const token = await AsyncStorage.getItem('token');
       const history = messages.slice(-8).filter(m => m.text?.trim()).map(m => ({
         role: m.role === 'ai' ? 'assistant' : 'user',
         content: m.text || '',

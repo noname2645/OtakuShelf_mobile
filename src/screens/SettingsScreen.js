@@ -39,7 +39,7 @@ const TABS = [
 ];
 
 export default function SettingsScreen({ navigation }) {
-  const { user, logout, refreshProfile, API } = useAuth();
+  const { user, token, logout, refreshProfile, API } = useAuth();
 
   const [activeTab, setActiveTab] = useState('security');
   const [loading, setLoading] = useState(true);
@@ -98,7 +98,6 @@ export default function SettingsScreen({ navigation }) {
     }
     const loadSettings = async () => {
       try {
-        const token = await AsyncStorage.getItem("token");
         const response = await axios.get(`${API}/api/settings/${userId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -123,7 +122,6 @@ export default function SettingsScreen({ navigation }) {
   const saveSettings = async (category, data) => {
     setSaving(true);
     try {
-      const token = await AsyncStorage.getItem("token");
       await axios.put(`${API}/api/settings/${userId}`, { [category]: data }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -165,7 +163,6 @@ export default function SettingsScreen({ navigation }) {
     }
     setPasswordSaving(true);
     try {
-      const token = await AsyncStorage.getItem("token");
       await axios.put(`${API}/auth/change-password`, {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
@@ -185,7 +182,6 @@ export default function SettingsScreen({ navigation }) {
   const handleSetupMfa = async () => {
     setMfaSaving(true);
     try {
-      const token = await AsyncStorage.getItem("token");
       const response = await axios.get(`${API}/api/mfa/setup/${userId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -200,7 +196,7 @@ export default function SettingsScreen({ navigation }) {
   const handleVerifyMfa = async () => {
     setMfaSaving(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+
       await axios.post(`${API}/api/mfa/verify/${userId}`, { token: mfaTokenInput }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -219,7 +215,7 @@ export default function SettingsScreen({ navigation }) {
     if (!mfaPasswordInput && user?.authType === 'local') return showNotification('error', 'Password required');
     setActionLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+
       await axios.post(`${API}/api/auth/request-security-otp/${userId}`, {
         action: 'mfa_disable',
         password: mfaPasswordInput
@@ -239,7 +235,7 @@ export default function SettingsScreen({ navigation }) {
     if (!securityOtpInput) return showNotification('error', 'Verification code required');
     setMfaSaving(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+
       await axios.post(`${API}/api/mfa/disable/${userId}`, { otp: securityOtpInput }, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -261,7 +257,7 @@ export default function SettingsScreen({ navigation }) {
     if (!deleteConfirm && user?.authType === 'local') return showNotification('error', 'Password required');
     setActionLoading(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+
       await axios.post(`${API}/api/auth/request-security-otp/${userId}`, {
         action: 'delete_account',
         password: deleteConfirm
@@ -281,7 +277,7 @@ export default function SettingsScreen({ navigation }) {
     if (!securityOtpInput) return showNotification('error', 'Verification code required');
     setSaving(true);
     try {
-      const token = await AsyncStorage.getItem("token");
+
       await axios.delete(`${API}/auth/delete-account`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         data: {
@@ -301,7 +297,7 @@ export default function SettingsScreen({ navigation }) {
   // Load sessions
   const loadSessions = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+
       const response = await axios.get(`${API}/api/settings/${userId}/sessions`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -314,7 +310,7 @@ export default function SettingsScreen({ navigation }) {
   // Logout all other sessions
   const handleLogoutAll = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+
       await axios.delete(`${API}/api/settings/${userId}/sessions`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -328,7 +324,7 @@ export default function SettingsScreen({ navigation }) {
   // Export data
   const handleExportData = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+
       const response = await axios.get(`${API}/api/settings/${userId}/export`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

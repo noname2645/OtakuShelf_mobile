@@ -261,7 +261,7 @@ const PieChart = ({ data }) => {
 
 
 const ProfileScreen = ({ navigation }) => {
-  const { user, loading: authLoading, updateProfile, API, logout, checkAuthStatus } = useAuth();
+  const { user, token, loading: authLoading, updateProfile, API, logout, checkAuthStatus } = useAuth();
   const { showNotification } = useNotification();
 
   useEffect(() => {
@@ -295,13 +295,11 @@ const ProfileScreen = ({ navigation }) => {
     if (!uid || !animeId) return;
     toggleFavorite(animeId);
     try {
-      const token = await AsyncStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = { Authorization: `Bearer ${token}` };
       await axios.put(`${API}/api/list/${uid}/${animeId}`, { favorite: true }, { headers });
     } catch (err) {
       if (err?.response?.status === 404) {
         try {
-          const token = await AsyncStorage.getItem("token");
           await axios.post(`${API}/api/list/${uid}`, {
             animeId: Number(animeId),
             title: typeof anime.title === 'string' ? anime.title : anime.title?.romaji || anime.title?.english || 'Unknown',
@@ -311,7 +309,7 @@ const ProfileScreen = ({ navigation }) => {
             favorite: true,
             format: anime.format || 'TV',
           }, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            headers: { Authorization: `Bearer ${token}` },
           });
         } catch (_) {}
       }
@@ -361,7 +359,6 @@ const ProfileScreen = ({ navigation }) => {
       const userId = user?._id || user?.id;
       if (!userId) return;
       
-      const token = await AsyncStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [profileRes, listRes] = await Promise.all([
@@ -507,7 +504,7 @@ const ProfileScreen = ({ navigation }) => {
       if (!result.canceled && result.assets[0].uri) {
         const formData = new FormData();
         formData.append('cover', { uri: result.assets[0].uri, name: 'cover.jpg', type: 'image/jpeg' });
-        const token = await AsyncStorage.getItem("token");
+
         const response = await axios.post(`${API}/api/profile/${userId}/upload-cover`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -531,7 +528,7 @@ const ProfileScreen = ({ navigation }) => {
       if (!result.canceled && result.assets[0].uri) {
         const formData = new FormData();
         formData.append('photo', { uri: result.assets[0].uri, name: 'photo.jpg', type: 'image/jpeg' });
-        const token = await AsyncStorage.getItem("token");
+
         const response = await axios.post(`${API}/api/profile/${userId}/upload-photo`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',

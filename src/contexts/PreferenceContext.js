@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PreferenceContext = createContext();
+const PreferenceContext = createContext({
+  isFavorite: () => false,
+  isWatchlisted: () => false,
+  toggleFavorite: () => {},
+  toggleWatchlist: () => {},
+  loaded: false,
+});
 
 const FAV_PREFIX = 'fav_';
 const WL_PREFIX = 'watchlist_';

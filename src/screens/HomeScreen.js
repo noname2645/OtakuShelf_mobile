@@ -263,7 +263,7 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
   }
 
   const current = featuredAnime[currentIndex] || featuredAnime[0];
-  const imageUrl = current?.coverImage?.extraLarge || current?.coverImage?.large || current?.bannerImage;
+  const imageUrl = current?.coverImage?.extraLarge || current?.coverImage?.large;
   const title = current?.title || 'Unknown';
   const rawDesc = (current?.description || '').replace(/<[^>]*>/g, '');
   const desc = rawDesc.substring(0, 180);
@@ -275,7 +275,7 @@ const TrailerHero = React.memo(({ featuredAnime, onOpenModal }) => {
   return (
     <View style={styles.heroContainer} {...panResponder.panHandlers}>
       {/* Banner Image */}
-      <Image source={{ uri: imageUrl }} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />
+      <Image source={{ uri: imageUrl }} style={styles.heroImage} contentFit="cover" priority="high" cachePolicy="memory-disk" />
 
       {/* Dual gradient overlay matching spec */}
       {/* Left-to-right dark gradient */}
@@ -485,7 +485,11 @@ const HomeScreen = ({ navigation }) => {
     } catch (_) {}
   }, []);
 
-  useEffect(() => { loadData(); loadHero(); }, []);
+  useEffect(() => {
+    if (!loaderDone) return;
+    loadData();
+    loadHero();
+  }, [loaderDone]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -684,7 +688,7 @@ const HomeScreen = ({ navigation }) => {
 
       {/* ── PageLoader (cinematic intro) ── */}
       {!loaderDone && (
-        <PageLoader onFinish={() => setLoaderDone(true)} />
+        <PageLoader onFinish={() => setLoaderDone(true)} seenKey="intro_seen" />
       )}
     </View>
   );

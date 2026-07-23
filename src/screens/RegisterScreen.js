@@ -133,28 +133,89 @@ const RegisterScreen = ({ navigation }) => {
 
   const handleGoogleLogin = async () => {
     try {
-      await GoogleSignin.hasPlayServices();
+      setIsLoading(true);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       GoogleSignin.configure({
         webClientId: '1028034713117-cob0tcmatejclstqkf35smno6425vbna.apps.googleusercontent.com',
         offlineAccess: true,
       });
       const result = await GoogleSignin.signIn();
-      if (result.type !== 'success') return;
-      const idToken = result.data.idToken;
-      if (!idToken) {
-        showNotification('error', 'Google sign-in failed');
+      if (result.type !== 'success') {
+        if (result.type === 'noSavedCredentialFound') {
+          showNotification('error', 'No Google account found. Please add a Google account to your device first.');
+        } else {
+          showNotification('error', 'Google sign-in was cancelled');
+        }
         return;
       }
-      const res = await axios.post(`${API}/auth/google`, { idToken });
-      const userData = res.data?.user;
-      const token = res.data?.token;
+      const idToken = result.data.idToken;
+      if (!idToken) {
+        showNotification('error', 'Google sign-in failed: no ID token returned');
+        return;
+      }
+      console.log('[Google Auth] Sending idToken to backend:', `${API}/auth/google`);
+      console.log('[Google Auth] idToken prefix:', idToken.substring(0, 20) + '...');
+      
+      let res;
+      try {
+        res = await axios.post(`${API}/auth/google`, { idToken }, {
+          timeout: 30000,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        });
+        console.log('[Google Auth] Axios response status:', res.status);
+      } catch (axiosErr) {
+        console.error('[Google Auth] Axios failed, trying fetch...');
+        console.error('[Google Auth] Axios error code:', axiosErr.code);
+        console.error('[Google Auth] Axios error message:', axiosErr.message);
+        
+        const fetchRes = await fetch(`${API}/auth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+        });
+        
+        if (!fetchRes.ok) {
+          const text = await fetchRes.text();
+          throw new Error(`HTTP ${fetchRes.status}: ${text}`);
+        }
+        
+        res = { data: await fetchRes.json(), status: fetchRes.status };
+        console.log('[Google Auth] Fetch response status:', res.status);
+      }
+      
+      console.log('[Google Auth] Response data:', res.data);
+      const userData = res.data?.data?.user || res.data?.user;
+      const token = res.data?.data?.token || res.data?.token;
       if (userData && token) {
         await login(userData, token);
         navigation.replace('Home');
+      } else {
+        console.error('[Google Auth] Invalid response format:', res.data);
+        showNotification('error', 'Invalid response from server');
       }
     } catch (err) {
-      if (err.code === statusCodes.SIGN_IN_CANCELLED) return;
-      showNotification('error', err.message || 'Google sign-in failed');
+      console.error('[Google Sign-In Error]', err);
+      let errorMessage = 'Google sign-in failed';
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        return;
+      } else if (err.code === statusCodes.NETWORK_ERROR) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (err.code === statusCodes.DEVELOPER_ERROR) {
+        errorMessage = 'Developer error. SHA-1 or package name mismatch in Google Cloud Console.';
+      } else if (err.code === statusCodes.ONE_TAP_START_FAILED) {
+        errorMessage = 'Could not start Google sign-in. Try again later.';
+      } else if (err.message) {
+        errorMessage = `Google sign-in error: ${err.message}`;
+      }
+      showNotification('error', errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 

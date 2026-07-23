@@ -58,12 +58,13 @@ const FILTER_OPTIONS = {
 const SearchScreen = ({ navigation }) => {
   const { API } = useAuth();
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearchText, setDebouncedSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedAnime, setSelectedAnime] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
-  const allIdsRef = useRef(new Set());
+  const searchTextRef = useRef(searchText);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -79,11 +80,21 @@ const SearchScreen = ({ navigation }) => {
 
   const [showFilters, setShowFilters] = useState(false);
   const filterAnim = useRef(new Animated.Value(0)).current;
-  const searchTextRef = useRef(searchText);
   const searchIdRef = useRef(0);
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     searchTextRef.current = searchText;
+  }, [searchText]);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearchText(searchText.trim());
+    }, 320);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [searchText]);
   const isStatusDefault =
     filters.status.length === DEFAULT_STATUS.length &&
@@ -260,7 +271,6 @@ const SearchScreen = ({ navigation }) => {
 
   useEffect(() => {
     const myRequestId = ++searchIdRef.current;
-    setSearchResults([]);
     setSearchLoading(true);
 
     (async () => {
@@ -269,27 +279,11 @@ const SearchScreen = ({ navigation }) => {
 
       if (r1) {
         setSearchResults(r1.items);
-        setSearchLoading(false);
+        setTotalResults(r1.total);
       }
-
-      const [r2, r3] = await Promise.all([
-        doFetch(2, myRequestId),
-        doFetch(3, myRequestId),
-      ]);
-      if (myRequestId !== searchIdRef.current) return;
-
-      const seen = new Set();
-      const merged = [];
-      for (const r of [r1, r2, r3]) {
-        if (!r) continue;
-        for (const item of r.items) {
-          if (!seen.has(item.id)) { seen.add(item.id); merged.push(item); }
-        }
-      }
-
-      setSearchResults(merged);
+      setSearchLoading(false);
     })();
-  }, [searchText, filters]);
+  }, [debouncedSearchText, filters]);
 
   const scrollYSearch = useRef(new Animated.Value(0)).current;
   const headerBgOpacitySearch = scrollYSearch.interpolate({
@@ -344,7 +338,7 @@ const SearchScreen = ({ navigation }) => {
         onPress={openModal}
       />
     );
-  }, []);
+  }, [openModal]);
 
   return (
     <View style={styles.container}>
@@ -584,7 +578,7 @@ const SearchScreen = ({ navigation }) => {
       </Animated.View>
 
       {/* Results */}
-      {searchLoading && searchResults.length === 0 ? (
+      {searchResults.length === 0 && searchLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#ffae00" style={{ transform: [{ scale: 1.5 }] }} />
         </View>
@@ -598,7 +592,7 @@ const SearchScreen = ({ navigation }) => {
           initialNumToRender={8}
           maxToRenderPerBatch={10}
           windowSize={7}
-          removeClippedSubviews={true}
+          removeClippedSubviews={false}
           overScrollMode="never"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -622,6 +616,11 @@ const SearchScreen = ({ navigation }) => {
               )}
             </View>
           }
+          ListHeaderComponent={searchLoading && searchResults.length > 0 ? (
+            <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#ffae00" />
+            </View>
+          ) : null}
           ListFooterComponent={<AppFooter />}
           ListFooterComponentStyle={{ paddingBottom: 90 }}
           columnWrapperStyle={COLUMN_WRAPPER}
